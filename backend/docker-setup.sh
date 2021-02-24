@@ -13,6 +13,11 @@ if [ ! -f "$FRONTEND_CONFIG_FILE" ]; then
     cp $BASEDIR/config/autoload/frontend.docker.dist "$FRONTEND_CONFIG_FILE"
 fi
 
+MAIL_CONFIG_FILE=$BASEDIR"/config/autoload/mail.local.dev.php"
+if [ ! -f "$MAIL_CONFIG_FILE" ]; then
+    cp $BASEDIR/config/autoload/mail.local.docker.dist "$MAIL_CONFIG_FILE"
+fi
+
 php bin/wait-for-composer-install.php
 php bin/wait-for-db.php
 
