@@ -376,9 +376,20 @@
         "title": "Create an account"
       },
       "registerDone": {
-        "login": "Login",
-        "success": "Successfully registered",
-        "title": "Create account"
+        "backToHome": "Back to home",
+        "success": "Successfully registered.",
+        "title": "Create account",
+        "verifyAccount": "Please verify your email address using the link we sent you."
+      },
+      "verifyEmail": {
+        "loginNow": "Log in now",
+        "success": "Email {email} was successfully verified.",
+        "title": "Email verification"
+      },
+      "verifyEmailFailed": {
+        "backToHome": "Back to home",
+        "failure": "The email verification has failed. Maybe the email has already been verified.",
+        "title": "Email verification failed"
       }
     },
     "camp": {

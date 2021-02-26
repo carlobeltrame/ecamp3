@@ -36,7 +36,7 @@ class SendmailService extends AbstractService {
         $data->template = 'register';
         $data->data = [
             'user_name' => $user->getDisplayName(),
-            'url' => '',
+            'url' => "{$this->frontendUrl}/verify-email/{$key}",
         ];
 
         $this->mailProvider->sendMail($data);

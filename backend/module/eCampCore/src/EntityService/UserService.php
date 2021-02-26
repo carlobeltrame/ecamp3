@@ -9,6 +9,7 @@ use eCamp\Core\Entity\User;
 use eCamp\Core\Hydrator\UserHydrator;
 use eCamp\Core\Repository\UserRepository;
 use eCamp\Core\Service\SendmailService;
+use eCamp\Lib\Service\EntityNotFoundException;
 use eCamp\Lib\Service\ServiceUtils;
 use Hybridauth\User\Profile;
 use Laminas\Authentication\AuthenticationService;
@@ -65,6 +66,28 @@ class UserService extends AbstractEntityService {
     }
 
     /**
+     * @throws EntityNotFoundException
+     * @throws \Exception
+     */
+    public function verifyEmail(string $token): string {
+        /** @var UserRepository $repository */
+        $repository = $this->getRepository();
+        $user = $repository->findByVerificationCode($token);
+
+        if (null == $user) {
+            throw new EntityNotFoundException();
+        }
+
+        if (!$user->verifyMailAddress($token)) {
+            throw new EntityNotFoundException();
+        }
+
+        $this->getRepository()->saveWithoutAcl($user);
+
+        return $user->getTrustedMailAddress();
+    }
+
+    /**
      * @throws ORMException
      * @throws \Exception
      */
@@ -102,15 +125,7 @@ class UserService extends AbstractEntityService {
         if ($profile instanceof Profile) {
             $user->verifyMailAddress($key);
         } else {
-            // Send Activtion Mail:
             $this->sendmailService->sendRegisterMail($user, $key);
-
-            // TODO: Remove Dev-Code
-            // Dev: Registrierte Benutzer sofort freischalten
-            //      Keine Aktivierung mit Mail notwendig
-            if (User::STATE_REGISTERED == $user->getState()) {
-                $user->verifyMailAddress($key);
-            }
         }
 
         return $user;

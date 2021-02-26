@@ -42,6 +42,25 @@ export default new Router({
       }
     },
     {
+      path: '/verify-email/:token',
+      name: 'verify-email',
+      components: {
+        navigation: NavigationAuth,
+        default: () => import(/* webpackChunkName: "register" */ './views/auth/VerifyEmail')
+      },
+      props: {
+        default: route => ({ token: route.params.token })
+      }
+    },
+    {
+      path: '/verify-email-failed',
+      name: 'verify-email-failed',
+      components: {
+        navigation: NavigationAuth,
+        default: () => import(/* webpackChunkName: "register" */ './views/auth/VerifyEmailFailed')
+      }
+    },
+    {
       path: '/login',
       name: 'login',
       components: {

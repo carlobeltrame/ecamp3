@@ -25,7 +25,7 @@ class MailAddress extends BaseEntity {
     private ?string $mail = null;
 
     /**
-     * @ORM\Column(type="string", length=64, nullable=true)
+     * @ORM\Column(type="string", length=64, nullable=true, unique=true)
      */
     private ?string $verificationCode = null;
 
@@ -48,7 +48,8 @@ class MailAddress extends BaseEntity {
     }
 
     public function createVerificationCode(): string {
-        $hash = hash('sha256', mt_rand());
+        // TODO add retrying so we can be more certain that the token is unique
+        $hash = random_bytes(64);
         $this->verificationCode = md5($hash);
 
         return $hash;

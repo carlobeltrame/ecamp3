@@ -75,7 +75,7 @@ class User extends AbstractCampOwner implements RoleInterface {
     private ?MailAddress $trustedMailAddress = null;
 
     /**
-     * @ORM\OneToOne(targetEntity="MailAddress", cascade={"all"}, orphanRemoval=true)
+     * @ORM\OneToOne(targetEntity="MailAddress", cascade={"all"}, orphanRemoval=false)
      * @ORM\JoinColumn
      */
     private ?MailAddress $untrustedMailAddress = null;

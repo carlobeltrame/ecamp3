@@ -1,14 +1,15 @@
 <template>
   <auth-container>
-    <h1 class="display-1">{{ $tc('views.auth.registerDone.title') }}</h1>
-    <v-alert type="success" class="my-4 text--green text--darken-2">
-      {{ $tc('views.auth.registerDone.success') }} {{ $tc('views.auth.registerDone.verifyAccount') }}
+    <h1 class="display-1">{{ $tc('views.auth.verifyEmailFailed.title') }}</h1>
+
+    <v-alert type="error" class="my-4">
+      {{ $tc('views.auth.verifyEmailFailed.failure') }}
     </v-alert>
     <v-spacer />
     <v-btn color="primary" :to="{name: 'home'}"
            x-large
            class="my-4" block>
-      {{ $tc('views.auth.registerDone.backToHome') }}
+      {{ $tc('views.auth.verifyEmailFailed.backToHome') }}
     </v-btn>
   </auth-container>
 </template>
@@ -17,7 +18,7 @@
 import AuthContainer from '@/components/layout/AuthContainer'
 
 export default {
-  name: 'RegisterDone',
+  name: 'VerifyEmailFailed',
   components: { AuthContainer }
 }
 </script>

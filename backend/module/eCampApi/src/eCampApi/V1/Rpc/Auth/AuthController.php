@@ -78,6 +78,13 @@ class AuthController extends AbstractActionController {
             ],
         ]);
 
+        $data['verifyEmail'] = TemplatedLink::factory([
+            'rel' => 'verifyEmail',
+            'route' => [
+                'name' => 'e-camp-api.rpc.auth.email',
+            ],
+        ]);
+
         $data['login'] = Link::factory([
             'rel' => 'login',
             'route' => [

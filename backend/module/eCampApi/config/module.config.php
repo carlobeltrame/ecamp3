@@ -23,6 +23,16 @@ return [
                     ],
                 ],
             ],
+            'e-camp-api.rpc.auth.email' => [
+                'type' => 'Segment',
+                'options' => [
+                    'route' => '/api/auth/verifyEmail[/:token]',
+                    'defaults' => [
+                        'controller' => 'eCampApi\\V1\\Rpc\\Auth\\EmailVerificationController',
+                        'action' => 'verify',
+                    ],
+                ],
+            ],
             'e-camp-api.rpc.auth.google' => [
                 'type' => 'Segment',
                 'options' => [
@@ -88,6 +98,7 @@ return [
     'controllers' => [
         'factories' => [
             'eCampApi\\V1\\Rpc\\Auth\\AuthController' => \Laminas\Di\Container\ServiceManager\AutowireFactory::class,
+            'eCampApi\\V1\\Rpc\\Auth\\EmailVerificationController' => \Laminas\Di\Container\ServiceManager\AutowireFactory::class,
             'eCampApi\\V1\\Rpc\\Index\\IndexController' => \Laminas\Di\Container\ServiceManager\AutowireFactory::class,
             'eCampApi\\V1\\Rpc\\Invitation\\InvitationController' => \Laminas\Di\Container\ServiceManager\AutowireFactory::class,
             'eCampApi\\V1\\Rpc\\Register\\RegisterController' => \Laminas\Di\Container\ServiceManager\AutowireFactory::class,
@@ -100,6 +111,7 @@ return [
             'eCampApi\\V1\\Rpc\\Index\\IndexController' => 'HalJson',
             'eCampApi\\V1\\Rpc\\Invitation\\InvitationController' => 'HalJson',
             'eCampApi\\V1\\Rpc\\Auth\\AuthController' => 'HalJson',
+            'eCampApi\\V1\\Rpc\\Auth\\EmailVerificationController' => 'HalJson',
             'eCampApi\\V1\\Rpc\\Register\\RegisterController' => 'HalJson',
             'eCampApi\\V1\\Rpc\\Profile\\ProfileController' => 'HalJson',
             'eCampApi\\V1\\Rpc\\Printer\\PrinterController' => 'HalJson',
@@ -116,6 +128,11 @@ return [
                 2 => 'application/*+json',
             ],
             'eCampApi\\V1\\Rpc\\Auth\\AuthController' => [
+                0 => 'application/vnd.e-camp-api.v1+json',
+                1 => 'application/json',
+                2 => 'application/*+json',
+            ],
+            'eCampApi\\V1\\Rpc\\Auth\\EmailVerificationController' => [
                 0 => 'application/vnd.e-camp-api.v1+json',
                 1 => 'application/json',
                 2 => 'application/*+json',
@@ -146,6 +163,10 @@ return [
                 1 => 'application/json',
             ],
             'eCampApi\\V1\\Rpc\\Auth\\AuthController' => [
+                0 => 'application/vnd.e-camp-api.v1+json',
+                1 => 'application/json',
+            ],
+            'eCampApi\\V1\\Rpc\\Auth\\EmailVerificationController' => [
                 0 => 'application/vnd.e-camp-api.v1+json',
                 1 => 'application/json',
             ],
@@ -188,6 +209,13 @@ return [
             'collection_query_whitelist' => [
                 'callback',
             ],
+        ],
+        'eCampApi\\V1\\Rpc\\Auth\\EmailVerificationController' => [
+            'service_name' => 'EmailVerification',
+            'http_methods' => [
+                0 => 'POST',
+            ],
+            'route_name' => 'e-camp-api.rpc.auth.email',
         ],
         'eCampApi\\V1\\Rpc\\Index\\IndexController' => [
             'service_name' => 'Index',

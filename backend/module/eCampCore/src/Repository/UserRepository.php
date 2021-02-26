@@ -62,4 +62,27 @@ class UserRepository extends EntityRepository {
             return null;
         }
     }
+
+    /**
+     * @param string $code
+     */
+    public function findByVerificationCode($code): ?User {
+        $q = $this->createQueryBuilder('u');
+        $q->join('u.untrustedMailAddress', 'utm');
+        $q->where('utm.verificationCode = :code');
+        $q->setParameter('code', md5($code));
+
+        try {
+            $q->setMaxResults(1);
+
+            return $q->getQuery()->getOneOrNullResult();
+        } catch (NonUniqueResultException $e) {
+            // This shouldn't ever happen
+            return null;
+        }
+    }
+
+    public function saveWithoutAcl(User $user): void {
+        $this->getEntityManager()->persist($user);
+    }
 }
