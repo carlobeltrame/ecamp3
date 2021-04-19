@@ -8,7 +8,7 @@
     @sort="onSort"
     @start="dragging = true"
     @end="dragging = false">
-    <!-- disable transition for drag&drop as draggable already comes with its own anmations -->
+    <!-- disable transition for drag&drop as draggable already comes with its own animations -->
     <transition-group :name="!dragging ? 'flip-list' : null" tag="div">
       <div v-for="entity in locallySortedEntities" :key="entity._meta.self">
         <slot
@@ -59,7 +59,7 @@ export default {
       })
     },
 
-    // locally sorted entities (sorted as per loal hrefList)
+    // locally sorted entities (sorted as per local hrefList)
     locallySortedEntities () {
       return this.sorting.hrefList.map(href => this.api.get(href))
     }
@@ -112,7 +112,7 @@ export default {
     },
 
     /**
-     * Triggeres on every sorting change
+     * Triggers on every sorting change
      */
     onSort (event) {
       this.saveLocalSorting()
