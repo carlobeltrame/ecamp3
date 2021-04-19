@@ -9,6 +9,12 @@
                       :max-width="maxWidth(slot)"
                       @resizing="newWidth => resizeColumn(slot, newWidth)"
                       @resize-stop="saveColumnWidths">
+      <v-subheader v-if="layoutMode && $vuetify.breakpoint.smAndDown && numColumns > 1">
+        {{ $tc('contentNode.columnLayout.entity.column.name') }}
+        <v-progress-linear class="ml-3" buffer-value="100" :style="'flex-basis: ' + relativeColumnWidths[slot][0] + '0%'" />
+        <v-progress-linear value="100" :style="'flex-basis: ' + relativeColumnWidths[slot][1] + '0%'" />
+        <v-progress-linear buffer-value="100" :style="'flex-basis: ' + relativeColumnWidths[slot][2] + '0%'" />
+      </v-subheader>
       <draggable v-model="localColumnContents[slot]"
                  :disabled="!draggingEnabled"
                  group="contentNodes"
@@ -16,14 +22,6 @@
                  :class="{ 'column-min-height': layoutMode }"
                  @start="startDrag"
                  @end="finishDrag">
-        <template v-if="layoutMode && $vuetify.breakpoint.smAndDown && numColumns > 1" #header>
-          <v-subheader>
-            {{ $tc('contentNode.columnLayout.entity.column.name') }}
-            <v-progress-linear class="ml-3" buffer-value="100" :style="'flex-basis: ' + relativeColumnWidths[slot][0] + '0%'" />
-            <v-progress-linear value="100" :style="'flex-basis: ' + relativeColumnWidths[slot][1] + '0%'" />
-            <v-progress-linear buffer-value="100" :style="'flex-basis: ' + relativeColumnWidths[slot][2] + '0%'" />
-          </v-subheader>
-        </template>
         <content-node v-for="childNode in localColumnContents[slot]"
                       :key="childNode.id"
                       class="content-node"
