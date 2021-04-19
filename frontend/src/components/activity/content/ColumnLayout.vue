@@ -133,22 +133,11 @@ export default {
       }))
     }
   },
-  watch: {
-    columns: {
-      immediate: true,
-      handler () {
-        this.localColumnContentIds = this.columnContentIds
-        this.setLocalColumnWidths()
-      }
-    }
-  },
   mounted () {
-    this.contentNode._meta.load.then(this.setLocalColumnWidths)
+    this.contentNode._meta.load.then(() => { this.localColumnWidths = mapValues(this.columns, 'width') })
+    this.contentNode.children()._meta.load.then(() => { this.localColumnContentIds = this.columnContentIds })
   },
   methods: {
-    setLocalColumnWidths () {
-      this.localColumnWidths = mapValues(this.columns, 'width')
-    },
     resizeColumn (slot, width) {
       const oldWidth = this.localColumnWidths[slot]
       const diff = width - oldWidth
