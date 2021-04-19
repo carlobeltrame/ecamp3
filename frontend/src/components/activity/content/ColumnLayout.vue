@@ -15,17 +15,17 @@
         <v-progress-linear value="100" :style="'flex-basis: ' + relativeColumnWidths[slot][1] + '0%'" />
         <v-progress-linear buffer-value="100" :style="'flex-basis: ' + relativeColumnWidths[slot][2] + '0%'" />
       </v-subheader>
-      <draggable v-model="localColumnContents[slot]"
+      <draggable v-model="localColumnContentIds[slot]"
                  :disabled="!draggingEnabled"
                  group="contentNodes"
                  class="d-flex flex-column"
                  :class="{ 'column-min-height': layoutMode }"
                  @start="startDrag"
-                 @end="finishDrag">
-        <content-node v-for="childNode in localColumnContents[slot]"
-                      :key="childNode.id"
+                 @sort="finishDrag">
+        <content-node v-for="childNodeId in localColumnContentIds[slot]"
+                      :key="childNodeId"
                       class="content-node"
-                      :content-node="childNode"
+                      :content-node="childrenById[childNodeId]"
                       :layout-mode="layoutMode"
                       :draggable="draggingEnabled" />
       </draggable>
@@ -86,7 +86,7 @@ export default {
   mixins: [contentNodeMixin],
   data () {
     return {
-      localColumnContents: {},
+      localColumnContentIds: {},
       localColumnWidths: {}
     }
   },
@@ -107,8 +107,11 @@ export default {
     groupedChildren () {
       return groupBy(sortBy(this.contentNode.children().items, 'position'), 'slot')
     },
-    columnContents () {
-      return mapValues(this.columns, (_, slot) => this.groupedChildren[slot] || [])
+    columnContentIds () {
+      return mapValues(this.columns, (_, slot) => (this.groupedChildren[slot] || []).map(child => child.id) || [])
+    },
+    childrenById () {
+      return keyBy(this.contentNode.children().items, 'id')
     },
     relativeColumnWidths () {
       // Cumulative sum of column widths, to know how many "width units" are to the left of each column
@@ -134,12 +137,9 @@ export default {
     columns: {
       immediate: true,
       handler () {
-        this.localColumnContents = this.columnContents
+        this.localColumnContentIds = this.columnContentIds
         this.setLocalColumnWidths()
       }
-    },
-    columnContents () {
-      this.localColumnContents = this.columnContents
     }
   },
   mounted () {
@@ -186,10 +186,10 @@ export default {
       this.api.reload(this.contentNode)
     },
     async saveReorderedChildren () {
-      const payload = Object.fromEntries(Object.entries(this.localColumnContents).flatMap(([slot, columnContents]) => {
+      const payload = Object.fromEntries(Object.entries(this.localColumnContentIds).flatMap(([slot, columnContentIds]) => {
         let position = 0
-        return columnContents.map(contentNode => {
-          return [contentNode.id, {
+        return columnContentIds.map(contentNodeId => {
+          return [contentNodeId, {
             slot: slot,
             position: position++
           }]
