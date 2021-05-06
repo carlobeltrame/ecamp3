@@ -28,7 +28,7 @@ Displays a single activity
                outlined
                @click="layoutMode = false">
           <template v-if="$vuetify.breakpoint.smAndUp">
-            <v-icon left>mdi-check</v-icon>
+            <v-icon left>mdi-file-document-edit-outline</v-icon>
             {{ $tc('views.activity.activity.backToContents') }}
           </template>
           <template v-else>{{ $tc('views.activity.activity.back') }}</template>
