@@ -100,6 +100,23 @@ class CreatePeriodTest extends ECampApiTestCase {
         ]);
     }
 
+    public function testCreatePeriodValidatesOverlappingPeriods() {
+        static::createClientWithCredentials()->request('POST', '/periods', ['json' => $this->getExampleWritePayload([
+            'start' => static::$fixtures['period1']->start->format('Y-m-d'),
+            'end' => static::$fixtures['period1']->end->format('Y-m-d'),
+        ], [])]);
+
+        $this->assertResponseStatusCodeSame(422);
+        $this->assertJsonContains([
+            'violations' => [
+                [
+                    'propertyPath' => '',
+                    'message' => 'Must not overlap with the other periods of the camp.',
+                ],
+            ],
+        ]);
+    }
+
     public function testCreatePeriodValidatesMissingDescription() {
         static::createClientWithCredentials()->request('POST', '/periods', ['json' => $this->getExampleWritePayload([], ['description'])]);
 

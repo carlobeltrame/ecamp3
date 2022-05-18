@@ -10,6 +10,7 @@ use App\Repository\PeriodRepository;
 use App\Serializer\Normalizer\RelatedCollectionLink;
 use App\Validator\Period\AssertGreaterThanOrEqualToLastScheduleEntryEnd;
 use App\Validator\Period\AssertLessThanOrEqualToEarliestScheduleEntryStart;
+use App\Validator\Period\AssertNoOverlappingPeriods;
 use DateTime;
 use DateTimeInterface;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -51,6 +52,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 )]
 #[ApiFilter(SearchFilter::class, properties: ['camp'])]
 #[ORM\Entity(repositoryClass: PeriodRepository::class)]
+#[AssertNoOverlappingPeriods]
 class Period extends BaseEntity implements BelongsToCampInterface {
     public const ITEM_NORMALIZATION_CONTEXT = [
         'groups' => ['read', 'Period:Camp', 'Period:Days'],
@@ -115,6 +117,7 @@ class Period extends BaseEntity implements BelongsToCampInterface {
      *       a user confirmation dialog. But then again, we also support deleting whole camps
      *       that aren't empty...
      */
+    #[Assert\Type(\DateTime::class)]
     #[Assert\LessThanOrEqual(propertyPath: 'end')]
     #[AssertLessThanOrEqualToEarliestScheduleEntryStart()]
     #[ApiProperty(example: '2022-01-01', openapiContext: ['format' => 'date'])]
@@ -130,6 +133,7 @@ class Period extends BaseEntity implements BelongsToCampInterface {
      * The (inclusive) day at the end of which the period ends, as an ISO date string. Should
      * not be before "start".
      */
+    #[Assert\Type(\DateTime::class)]
     #[Assert\GreaterThanOrEqual(propertyPath: 'start')]
     #[AssertGreaterThanOrEqualToLastScheduleEntryEnd()]
     #[ApiProperty(example: '2022-01-08', openapiContext: ['format' => 'date'])]

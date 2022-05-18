@@ -24,10 +24,7 @@ class InputFilterDenormalizer implements ContextAwareDenormalizerInterface, Deno
 
     private const ALREADY_CALLED = 'INPUT_FILTER_DENORMALIZER_ALREADY_CALLED';
 
-    private ServiceLocator $inputFilterLocator;
-
-    public function __construct(ServiceLocator $inputFilterLocator) {
-        $this->inputFilterLocator = $inputFilterLocator;
+    public function __construct(private ServiceLocator $inputFilterLocator) {
     }
 
     /**
