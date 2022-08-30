@@ -82,4 +82,8 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
+  server: {
+    open: '/',
+  },
+  clearScreen: false,
 }))
