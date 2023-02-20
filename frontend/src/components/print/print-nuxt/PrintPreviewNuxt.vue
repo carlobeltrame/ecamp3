@@ -28,7 +28,7 @@
 </template>
 
 <script>
-import { getEnv } from '@/dev-environment.js'
+import { getEnv } from '@/environment.js'
 
 const PRINT_URL = getEnv().PRINT_URL
 

@@ -107,7 +107,7 @@ import PagesOverview from './configurator/PagesOverview.vue'
 import PagesConfig from './configurator/PagesConfig.vue'
 import DownloadNuxtPdfButton from '@/components/print/print-nuxt/DownloadNuxtPdfButton.vue'
 import DownloadReactPdfButton from '@/components/print/print-react/DownloadReactPdfButton.vue'
-import { getEnv } from '@/dev-environment.js'
+import { getEnv } from '@/environment.js'
 
 export default {
   name: 'PrintConfigurator',

@@ -28,7 +28,7 @@
 import LanguageSwitcher from '@/components/layout/LanguageSwitcher.vue'
 import VueI18n from '@/plugins/i18n'
 import { parseTemplate } from 'url-template'
-import { getEnv } from '@/dev-environment.js'
+import { getEnv } from '@/environment.js'
 
 export default {
   name: 'App',

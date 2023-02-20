@@ -3,7 +3,7 @@ import Router from 'vue-router'
 import slugify from 'slugify'
 import { isLoggedIn } from '@/plugins/auth'
 import { apiStore } from '@/plugins/store'
-import { getEnv } from '@/dev-environment'
+import { getEnv } from '@/environment.js'
 
 Vue.use(Router)
 

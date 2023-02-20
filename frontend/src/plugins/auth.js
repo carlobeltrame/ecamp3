@@ -2,6 +2,7 @@ import axios from 'axios'
 import { apiStore, store } from '@/plugins/store'
 import router from '@/router'
 import Cookies from 'js-cookie'
+import { getEnv } from "@/environment.js";
 
 axios.interceptors.response.use(null, (error) => {
   if (error.status === 401) {
@@ -113,7 +114,7 @@ async function redirectToOAuthLogin(provider) {
   return apiStore
     .href(apiStore.get(), provider, { callback: encodeURI(returnUrl) })
     .then((url) => {
-      window.location.href = window.environment.API_ROOT_URL + url
+      window.location.href = getEnv().API_ROOT_URL + url
     })
 }
 
@@ -135,7 +136,7 @@ async function loginJublaDB() {
 
 export async function logout() {
   Cookies.remove(headerAndPayloadCookieName(), {
-    domain: window.environment.SHARED_COOKIE_DOMAIN,
+    domain: getEnv().SHARED_COOKIE_DOMAIN,
   })
   store.commit('logout')
   return router
@@ -150,7 +151,7 @@ function headerAndPayloadCookieName() {
 }
 
 function cookiePrefix() {
-  return window.environment.COOKIE_PREFIX || ''
+  return getEnv().COOKIE_PREFIX || ''
 }
 
 export const auth = {

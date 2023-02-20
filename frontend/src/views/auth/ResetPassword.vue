@@ -98,6 +98,7 @@
 import { load } from 'recaptcha-v3'
 import { ValidationObserver } from 'vee-validate'
 import { passwordStrengthMixin } from '../../mixins/passwordStrengthMixin.js'
+import { getEnv } from "@/environment";
 
 export default {
   name: 'ResetPassword',
@@ -118,8 +119,8 @@ export default {
   },
 
   async mounted() {
-    if (window.environment.RECAPTCHA_SITE_KEY) {
-      this.recaptcha = load(window.environment.RECAPTCHA_SITE_KEY, {
+    if (getEnv().RECAPTCHA_SITE_KEY) {
+      this.recaptcha = load(getEnv().RECAPTCHA_SITE_KEY, {
         explicitRenderParameters: {
           badge: 'bottomleft',
         },

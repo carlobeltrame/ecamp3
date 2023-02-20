@@ -2,7 +2,7 @@ import { saveAs } from 'file-saver'
 import slugify from 'slugify'
 import { cloneDeep } from 'lodash'
 import axios from 'axios'
-import { getEnv } from '@/dev-environment.js'
+import { getEnv } from '@/environment.js'
 
 const PRINT_URL = getEnv().PRINT_URL
 

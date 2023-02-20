@@ -1,8 +1,11 @@
-// you can overwrite the env variables locally in frontend/env.local
-// @see https://vitejs.dev/guide/env-and-mode.html
-if (!window.environment) {
+export function getEnv() {
+  if (window.environment) {
+    return window.environment
+  }
+  // you can overwrite the env variables locally in frontend/env.local
+  // @see https://vitejs.dev/guide/env-and-mode.html
   const env = import.meta.env
-  window.environment = {
+  return {
     API_ROOT_URL: env.VITE_API_ROOT_URL ?? 'http://localhost:3001',
     COOKIE_PREFIX: env.VITE_COOKIE_PREFIX ?? 'localhost_',
     PRINT_URL: env.VITE_PRINT_URL ?? 'http://localhost:3003',
@@ -18,4 +21,3 @@ if (!window.environment) {
     LOGIN_INFO_TEXT_KEY: env.VITE_LOGIN_INFO_TEXT_KEY ?? 'dev',
   }
 }
-export const getEnv = () => window.environment
