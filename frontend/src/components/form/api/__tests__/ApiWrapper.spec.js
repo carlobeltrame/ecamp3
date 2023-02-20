@@ -7,19 +7,12 @@ import veeValidatePlugin from '@/plugins/veeValidate'
 import ApiWrapper from '../ApiWrapper.vue'
 import { VForm, VBtn } from 'vuetify/lib'
 import { ValidationObserver } from 'vee-validate'
+import { vi } from 'vitest'
+import { cloneDeep } from 'lodash/cloneDeep';
 
-jest.mock('lodash')
-const { cloneDeep } = jest.requireActual('lodash')
+vi.mock('lodash')
 
-/*
-jest.mock('vee-validate', () => ({
-  validate: jest.fn().mockResolvedValue({
-    valid: true,
-    errors: []
-  })
-})) */
-
-jest.useFakeTimers()
+vi.useFakeTimers()
 
 Vue.use(Vuetify)
 Vue.use(veeValidatePlugin)
@@ -104,16 +97,16 @@ describe('Testing ApiWrapper [autoSave=true;  manual external value]', () => {
     wrapper = shallowMount(ApiWrapper, config)
     vm = wrapper.vm
 
-    apiPatch = jest.spyOn(config.mocks.api, 'patch')
+    apiPatch = vi.spyOn(config.mocks.api, 'patch')
 
     // mock validation Promise
-    validate = jest.spyOn(vm.$refs.validationObserver, 'validate')
+    validate = vi.spyOn(vm.$refs.validationObserver, 'validate')
     validate.mockImplementation(() => mockPromiseResolving(true))
   })
 
   afterEach(() => {
     wrapper?.destroy()
-    jest.restoreAllMocks()
+    vi.resetAllMocks()
   })
 
   test('init correctly with default values', () => {
@@ -142,11 +135,11 @@ describe('Testing ApiWrapper [autoSave=true;  manual external value]', () => {
     expect(vm.localValue).toBe(newValue)
 
     // resolve lodash debounced
-    await jest.advanceTimersByTime(100)
+    await vi.advanceTimersByTime(100)
     await flushPromises()
 
     // await validation Promise
-    await jest.advanceTimersByTime(100)
+    await vi.advanceTimersByTime(100)
     await flushPromises()
 
     // saving started
@@ -161,7 +154,7 @@ describe('Testing ApiWrapper [autoSave=true;  manual external value]', () => {
     })
 
     // wait for patch promise to resolve
-    await jest.advanceTimersByTime(100)
+    await vi.advanceTimersByTime(100)
     await flushPromises()
 
     // feedback changed return value from API & make sure it's taken over to localValue
@@ -173,7 +166,7 @@ describe('Testing ApiWrapper [autoSave=true;  manual external value]', () => {
     expect(vm.status).toBe('success')
 
     // wait for success icon timer to finish
-    await jest.advanceTimersByTime(2000)
+    await vi.advanceTimersByTime(2000)
     await flushPromises()
 
     // again in init state
@@ -187,7 +180,7 @@ describe('Testing ApiWrapper [autoSave=true;  manual external value]', () => {
     // when
     await vm.onInput('new value')
     await input.trigger('submit') // trigger submit event (simulates enter key)
-    await jest.runAllTimers() // resolve lodash debounced
+    await vi.runAllTimers() // resolve lodash debounced
     await flushPromises() // resolve validation
 
     // then
@@ -200,7 +193,7 @@ describe('Testing ApiWrapper [autoSave=true;  manual external value]', () => {
 
     // when
     await vm.onInput('new value') // Trigger patch
-    await jest.runAllTimers() // resolve lodash debounced
+    await vi.runAllTimers() // resolve lodash debounced
     await flushPromises() // wait for patch promise to resolve
 
     // then
@@ -214,7 +207,7 @@ describe('Testing ApiWrapper [autoSave=true;  manual external value]', () => {
 
     // when
     await vm.onInput('new value') // Trigger patch
-    await jest.runAllTimers() // resolve lodash debounced
+    await vi.runAllTimers() // resolve lodash debounced
     await flushPromises() // wait for patch promise to resolve
 
     // then
@@ -289,7 +282,7 @@ describe('Testing ApiWrapper [autoSave=true; value from API]', () => {
     delete config.propsData.value
 
     // apiPatch = jest.spyOn(config.mocks.api, 'patch')
-    apiGet = jest.spyOn(config.mocks.api, 'get')
+    apiGet = vi.spyOn(config.mocks.api, 'get')
 
     apiGet.mockReturnValue({
       [config.propsData.fieldname]: 'api value',
@@ -462,7 +455,7 @@ describe('Testing ApiWrapper [autoSave=false]', () => {
     wrapper = shallowMount(ApiWrapper, config)
     vm = wrapper.vm
 
-    apiPatch = jest.spyOn(config.mocks.api, 'patch')
+    apiPatch = vi.spyOn(config.mocks.api, 'patch')
   })
 
   afterEach(() => {

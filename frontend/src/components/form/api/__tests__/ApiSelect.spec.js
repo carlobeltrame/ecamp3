@@ -7,11 +7,12 @@ import formBaseComponents from '@/plugins/formBaseComponents'
 import { mount as mountComponent } from '@vue/test-utils'
 import ApiSelect from '../ApiSelect.vue'
 import flushPromises from 'flush-promises'
-import ApiWrapper from '@/components/form/api/ApiWrapper'
+import ApiWrapper from '@/components/form/api/ApiWrapper.vue'
 import { i18n } from '@/plugins'
 import merge from 'lodash/merge'
 import { ApiMock } from '@/components/form/api/__tests__/ApiMock'
 import { waitForDebounce } from '@/test/util'
+import { vi } from "vitest";
 
 Vue.use(Vuetify)
 Vue.use(formBaseComponents)
@@ -40,7 +41,7 @@ describe('An ApiSelect', () => {
   })
 
   afterEach(() => {
-    jest.restoreAllMocks()
+    vi.resetAllMocks()
     wrapper.destroy()
   })
 

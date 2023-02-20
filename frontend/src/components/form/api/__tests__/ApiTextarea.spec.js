@@ -1,5 +1,5 @@
-import ApiTextarea from '@/components/form/api/ApiTextarea'
-import ApiWrapper from '@/components/form/api/ApiWrapper'
+import ApiTextarea from '@/components/form/api/ApiTextarea.vue'
+import ApiWrapper from '@/components/form/api/ApiWrapper.vue'
 import Vue from 'vue'
 import Vuetify from 'vuetify'
 import flushPromises from 'flush-promises'
@@ -9,6 +9,7 @@ import { ApiMock } from '@/components/form/api/__tests__/ApiMock'
 import { i18n } from '@/plugins'
 import { mount as mountComponent } from '@vue/test-utils'
 import { waitForDebounce } from '@/test/util'
+import { vi } from "vitest";
 
 Vue.use(Vuetify)
 Vue.use(formBaseComponents)
@@ -28,7 +29,7 @@ describe('An ApiTextarea', () => {
   })
 
   afterEach(() => {
-    jest.restoreAllMocks()
+    vi.resetAllMocks()
     wrapper.destroy()
   })
 

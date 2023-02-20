@@ -9,6 +9,7 @@ import { ApiMock } from '@/components/form/api/__tests__/ApiMock'
 import { i18n } from '@/plugins'
 import { mount as mountComponent } from '@vue/test-utils'
 import { waitForDebounce } from '@/test/util'
+import { vi } from 'vitest'
 
 Vue.use(Vuetify)
 Vue.use(formBaseComponents)
@@ -26,7 +27,7 @@ describe('An ApiCheckbox', () => {
   })
 
   afterEach(() => {
-    jest.restoreAllMocks()
+    vi.resetAllMocks()
     wrapper.destroy()
   })
 

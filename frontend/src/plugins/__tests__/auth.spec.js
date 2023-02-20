@@ -2,6 +2,7 @@ import Vue from 'vue'
 import { auth } from '@/plugins/auth'
 import storeLoader, { store, apiStore } from '@/plugins/store'
 import Cookies from 'js-cookie'
+import { vi } from 'vitest'
 
 Vue.use(storeLoader)
 
@@ -42,7 +43,7 @@ expect.extend({
 
 describe('authentication logic', () => {
   afterEach(() => {
-    jest.restoreAllMocks()
+    vi.restoreAllMocks()
     Cookies.remove('localhost_jwt_hp')
   })
 
@@ -88,7 +89,7 @@ describe('authentication logic', () => {
     it('sends a POST request to the API', async () => {
       // given
       store.replaceState(createState())
-      jest.spyOn(apiStore, 'post').mockImplementation(async () => {})
+      vi.spyOn(apiStore, 'post').mockImplementation(async () => {})
 
       // when
       await auth.register({ email: 'bar', password: 'baz' })
@@ -106,7 +107,7 @@ describe('authentication logic', () => {
     it('resolves to true if the user successfully logs in', async () => {
       // given
       store.replaceState(createState())
-      jest.spyOn(apiStore, 'post').mockImplementation(async () => {
+      vi.spyOn(apiStore, 'post').mockImplementation(async () => {
         Cookies.set('localhost_jwt_hp', validJWTPayload)
       })
 
@@ -124,7 +125,7 @@ describe('authentication logic', () => {
 
     it('resolves to false if the login fails', async () => {
       // given
-      jest.spyOn(apiStore, 'post').mockImplementation(async () => {
+      vi.spyOn(apiStore, 'post').mockImplementation(async () => {
         // login fails, no cookie added
       })
 
@@ -145,7 +146,7 @@ describe('authentication logic', () => {
     it('resolves to null if not logged in', async () => {
       // given
       store.replaceState(createState())
-      jest.spyOn(apiStore, 'get')
+      vi.spyOn(apiStore, 'get')
 
       // when
       const result = await auth.loadUser()
@@ -159,7 +160,7 @@ describe('authentication logic', () => {
       // given
       store.replaceState(createState())
       Cookies.set('localhost_jwt_hp', validJWTPayload)
-      jest.spyOn(apiStore, 'get')
+      vi.spyOn(apiStore, 'get')
 
       // when
       const result = await auth.loadUser()
@@ -186,8 +187,8 @@ describe('authentication logic', () => {
             }),
           },
         }
-        jest.spyOn(apiStore, 'get').mockImplementation(() => user)
-        jest.spyOn(auth, 'logout')
+        vi.spyOn(apiStore, 'get').mockImplementation(() => user)
+        vi.spyOn(auth, 'logout')
 
         // when
         const result = await auth.loadUser()

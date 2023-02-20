@@ -1,4 +1,4 @@
-import ApiDatePicker from '../ApiDatePicker'
+import ApiDatePicker from '../ApiDatePicker.vue'
 import { screen, waitFor } from '@testing-library/vue'
 import { render, setTestLocale } from '@/test/renderWithVuetify.js'
 import user from '@testing-library/user-event'
@@ -19,7 +19,7 @@ describe('An ApiDatePicker', () => {
   })
 
   afterEach(() => {
-    jest.restoreAllMocks()
+    vi.resetAllMocks()
   })
 
   it('triggers api.patch and status update if input changes', async () => {

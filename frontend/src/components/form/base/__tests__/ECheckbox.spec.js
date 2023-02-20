@@ -4,7 +4,8 @@ import Vuetify from 'vuetify'
 import formBaseComponents from '@/plugins/formBaseComponents'
 
 import { mount as mountComponent } from '@vue/test-utils'
-import ECheckbox from '../ECheckbox'
+import ECheckbox from '../ECheckbox.vue'
+import { vi } from 'vitest'
 
 Vue.use(Vuetify)
 Vue.use(formBaseComponents)
@@ -78,7 +79,7 @@ describe('An ECheckbox', () => {
     await input.trigger('click')
     expect(wrapper.vm.data).toBe(true)
 
-    jest.resetAllMocks()
+    vi.resetAllMocks()
     await input.trigger('click')
     expect(wrapper.vm.data).toBe(false)
   })

@@ -3,8 +3,9 @@ import { RuleTester } from 'eslint'
 import path from 'path'
 import fs from 'fs'
 import utils from 'eslint-plugin-vue/lib/utils/index.js'
+import { vi } from 'vitest'
 
-jest.mock('../packageDirectory.js')
+vi.mock('../packageDirectory.js')
 
 const ruleTester = new RuleTester({
   parser: require.resolve('vue-eslint-parser'),

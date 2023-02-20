@@ -1,6 +1,7 @@
 import { transformViolations } from '@/helpers/serverError'
 import cloneDeep from 'lodash/cloneDeep'
 import { fallbackLocale } from '@/plugins/i18n'
+import { vi } from 'vitest'
 
 describe('transformViolations', () => {
   describe('without i18n', () => {
@@ -31,8 +32,8 @@ describe('transformViolations', () => {
   })
 
   describe('with i18n', () => {
-    const te = jest.fn()
-    const tc = jest.fn()
+    const te = vi.fn()
+    const tc = vi.fn()
     const i18n = { te, tc }
 
     beforeEach(() => {
