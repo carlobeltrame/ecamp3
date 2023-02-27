@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, test } from 'vitest'
 import Vue from 'vue'
 import Vuetify from 'vuetify'
 

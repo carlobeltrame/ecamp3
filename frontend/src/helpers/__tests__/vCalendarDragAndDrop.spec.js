@@ -1,8 +1,9 @@
+import { describe, expect, it } from 'vitest'
 import {
-  toTime,
+  minMaxTime,
   roundTimeDown,
   roundTimeUp,
-  minMaxTime,
+  toTime,
 } from '@/helpers/vCalendarDragAndDrop.js'
 
 describe('toTime', () => {

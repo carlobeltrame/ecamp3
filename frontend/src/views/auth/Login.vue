@@ -132,7 +132,7 @@ import AuthContainer from '@/components/layout/AuthContainer.vue'
 import HorizontalRule from '@/components/layout/HorizontalRule.vue'
 import IconSpacer from '@/components/layout/IconSpacer.vue'
 import { serverErrorToString } from '@/helpers/serverError'
-import { getEnv } from "@/environment.js";
+import { getEnv } from '@/environment.js'
 
 const LOGIN_INFO_TEXT_KEY = getEnv().LOGIN_INFO_TEXT_KEY
 

@@ -53,7 +53,7 @@
 
 <script>
 import { load } from 'recaptcha-v3'
-import { getEnv } from "@/environment.js";
+import { getEnv } from '@/environment.js'
 
 export default {
   name: 'ResetPasswordRequest',

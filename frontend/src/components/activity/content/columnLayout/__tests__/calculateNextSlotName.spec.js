@@ -1,4 +1,5 @@
-import { calculateNextSlotName, adjustColumnWidths } from '../calculateNextSlotName.js'
+import { describe, expect, it } from 'vitest'
+import { adjustColumnWidths, calculateNextSlotName } from '../calculateNextSlotName.js'
 
 describe('generating a next slot name', () => {
   const examples = [

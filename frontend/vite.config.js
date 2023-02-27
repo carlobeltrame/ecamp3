@@ -117,8 +117,8 @@ export default defineConfig(({ mode }) => ({
     },
   },
   test: {
-    globals: true,
-    environment: 'happy-dom',
+    environment: 'jsdom',
     alias: [{ find: /^vue$/, replacement: 'vue/dist/vue.runtime.common.js' }],
+    setupFiles: './tests/setup.js',
   },
 }))

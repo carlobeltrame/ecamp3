@@ -98,7 +98,7 @@
 import { load } from 'recaptcha-v3'
 import { ValidationObserver } from 'vee-validate'
 import { passwordStrengthMixin } from '../../mixins/passwordStrengthMixin.js'
-import { getEnv } from "@/environment";
+import { getEnv } from '@/environment.js'
 
 export default {
   name: 'ResetPassword',

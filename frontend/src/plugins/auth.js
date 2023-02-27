@@ -2,7 +2,7 @@ import axios from 'axios'
 import { apiStore, store } from '@/plugins/store'
 import router from '@/router'
 import Cookies from 'js-cookie'
-import { getEnv } from "@/environment.js";
+import { getEnv } from '@/environment.js'
 
 axios.interceptors.response.use(null, (error) => {
   if (error.status === 401) {

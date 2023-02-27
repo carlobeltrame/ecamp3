@@ -1,8 +1,8 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Vue from 'vue'
 import { auth } from '@/plugins/auth'
-import storeLoader, { store, apiStore } from '@/plugins/store'
+import storeLoader, { apiStore, store } from '@/plugins/store'
 import Cookies from 'js-cookie'
-import { vi } from 'vitest'
 
 Vue.use(storeLoader)
 

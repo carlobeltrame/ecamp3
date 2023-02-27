@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest'
 import { fallbackLocale } from '@/plugins/i18n'
 import fallbackLocalesFor from '@/plugins/i18n/apiFallbackLocalesFor'
 

@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest'
 import { dayResponsiblesCommaSeparated } from '../dayResponsibles'
 
 describe('dayResponsibles', () => {

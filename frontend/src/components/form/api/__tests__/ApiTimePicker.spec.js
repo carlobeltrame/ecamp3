@@ -1,9 +1,9 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ApiTimePicker from '../ApiTimePicker.vue'
 import { screen, waitFor } from '@testing-library/vue'
 import { render, setTestLocale } from '@/test/renderWithVuetify.js'
 import user from '@testing-library/user-event'
 import { ApiMock } from '@/components/form/api/__tests__/ApiMock'
-import { vi } from "vitest";
 
 describe('An ApiTimePicker', () => {
   let apiMock

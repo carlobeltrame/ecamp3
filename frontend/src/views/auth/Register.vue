@@ -131,7 +131,7 @@ import VueI18n from '@/plugins/i18n'
 import { ValidationObserver } from 'vee-validate'
 import { passwordStrengthMixin } from '../../mixins/passwordStrengthMixin.js'
 import { parseTemplate } from 'url-template'
-import { getEnv } from "@/environment.js";
+import { getEnv } from '@/environment.js'
 
 export default {
   name: 'Register',

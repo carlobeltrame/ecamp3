@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, vi, test } from 'vitest'
 import Vue from 'vue'
 import Vuetify from 'vuetify'
 
@@ -6,7 +7,6 @@ import formBaseComponents from '@/plugins/formBaseComponents'
 import { mount as mountComponent } from '@vue/test-utils'
 import ESwitch from '@/components/form/base/ESwitch.vue'
 import { touch } from '@/test/util'
-import { vi } from 'vitest'
 
 Vue.use(Vuetify)
 Vue.use(formBaseComponents)

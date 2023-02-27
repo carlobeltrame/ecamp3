@@ -1,4 +1,6 @@
-export const debounce = jest.fn().mockImplementation(function (callback, delay) {
+import { vi } from 'vitest'
+
+export const debounce = vi.fn().mockImplementation(function (callback, delay) {
   let timer
   return function (...args) {
     clearTimeout(timer)
@@ -9,11 +11,11 @@ export const debounce = jest.fn().mockImplementation(function (callback, delay) 
   }
 })
 
-export const get = jest.fn().mockImplementation(function (object, path) {
+export const get = vi.fn().mockImplementation(function (object, path) {
   return object[path]
 })
 
-export const set = jest.fn().mockImplementation(function (object, path, value) {
+export const set = vi.fn().mockImplementation(function (object, path, value) {
   object[path] = value
   return object
 })

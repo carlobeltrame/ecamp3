@@ -1,7 +1,7 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { transformViolations } from '@/helpers/serverError'
 import cloneDeep from 'lodash/cloneDeep'
 import { fallbackLocale } from '@/plugins/i18n'
-import { vi } from 'vitest'
 
 describe('transformViolations', () => {
   describe('without i18n', () => {

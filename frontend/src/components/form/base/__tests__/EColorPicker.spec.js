@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/vue'
 import { render, setTestLocale, snapshotOf } from '@/test/renderWithVuetify.js'
 import user from '@testing-library/user-event'
@@ -5,6 +6,7 @@ import EColorPicker from '../EColorPicker.vue'
 
 import { regex } from 'vee-validate/dist/rules'
 import { extend } from 'vee-validate'
+
 extend('regex', regex)
 
 describe('An EColorPicker', () => {

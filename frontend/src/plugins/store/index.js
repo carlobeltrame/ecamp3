@@ -4,7 +4,7 @@ import VueAxios from 'vue-axios/dist/vue-axios.common.min'
 import HalJsonVuex from 'hal-json-vuex'
 import lang from './lang'
 import auth from './auth'
-import { getEnv } from "@/environment.js";
+import { getEnv } from '@/environment.js'
 
 class StorePlugin {
   install(Vue) {

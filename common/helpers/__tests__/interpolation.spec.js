@@ -1,4 +1,5 @@
-import { lerp, clamp, invlerp, range } from '../interpolation.js'
+import { describe, expect, it } from 'vitest'
+import { clamp, invlerp, lerp, range } from '../interpolation.js'
 
 describe('lerp', () => {
   it.each([

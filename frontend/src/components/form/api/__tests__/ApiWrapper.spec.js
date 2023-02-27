@@ -1,14 +1,13 @@
-// Libraries
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import Vue from 'vue'
 import Vuetify from 'vuetify'
 import flushPromises from 'flush-promises'
 import { createLocalVue, shallowMount } from '@vue/test-utils'
 import veeValidatePlugin from '@/plugins/veeValidate'
 import ApiWrapper from '../ApiWrapper.vue'
-import { VForm, VBtn } from 'vuetify/lib'
+import { VBtn, VForm } from 'vuetify/lib'
 import { ValidationObserver } from 'vee-validate'
-import { vi } from 'vitest'
-import { cloneDeep } from 'lodash/cloneDeep';
+import { cloneDeep } from 'lodash/cloneDeep.js'
 
 vi.mock('lodash')
 
@@ -281,7 +280,7 @@ describe('Testing ApiWrapper [autoSave=true; value from API]', () => {
     config = createConfig()
     delete config.propsData.value
 
-    // apiPatch = jest.spyOn(config.mocks.api, 'patch')
+    // apiPatch = vi.spyOn(config.mocks.api, 'patch')
     apiGet = vi.spyOn(config.mocks.api, 'get')
 
     apiGet.mockReturnValue({
