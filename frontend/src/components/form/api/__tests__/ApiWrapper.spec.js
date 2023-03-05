@@ -7,9 +7,10 @@ import veeValidatePlugin from '@/plugins/veeValidate'
 import ApiWrapper from '../ApiWrapper.vue'
 import { VBtn, VForm } from 'vuetify/lib'
 import { ValidationObserver } from 'vee-validate'
-import { cloneDeep } from 'lodash/cloneDeep.js'
 
 vi.mock('lodash')
+
+const { cloneDeep } = await vi.importActual('lodash')
 
 vi.useFakeTimers()
 

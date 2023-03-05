@@ -1,12 +1,12 @@
 import { vi } from 'vitest'
 
-export const debounce = vi.fn().mockImplementation(function (callback, delay) {
+export const debounce = vi.fn().mockImplementation(function (callback, _) {
   let timer
   return function (...args) {
     clearTimeout(timer)
-    var args = [].slice.call(arguments)
+    const argsCopy = [].slice.call(args)
     timer = setTimeout(() => {
-      callback.apply(this, args)
+      callback.apply(this, argsCopy)
     }, 100)
   }
 })
