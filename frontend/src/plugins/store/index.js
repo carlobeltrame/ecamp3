@@ -42,6 +42,4 @@ class StorePlugin {
 export let apiStore
 export let store
 
-export let storePlugin = new StorePlugin()
-
 export default new StorePlugin()

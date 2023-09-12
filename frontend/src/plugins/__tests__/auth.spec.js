@@ -6,7 +6,7 @@ import cloneDeep from 'lodash/cloneDeep'
 import { getEnv } from '@/environment'
 
 const storePlugin = await vi.importActual('@/plugins/store')
-const storeLoader = storePlugin.storePlugin
+const storeLoader = storePlugin.default
 
 Vue.use(storeLoader)
 
