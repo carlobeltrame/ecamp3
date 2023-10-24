@@ -5,7 +5,7 @@
         "columnLayout": {
           "columnOperations": {
             "addColumn": "Spalte hinzufügen",
-            "removeColumn": "Leere Spalte entfernen"
+            "removeColumn": "Leere letzte Spalte entfernen"
           }
         },
         "storyboard": {
@@ -292,7 +292,7 @@
     "program": {
       "formScheduleEntryItem": {
         "end": "Ende",
-        "start": "Start"
+        "start": "Von"
       },
       "formScheduleEntryList": {
         "name": "Geplante Termine"
@@ -352,7 +352,7 @@
         "password": "Passwort",
         "surname": "Nachname"
       },
-      "name": "User"
+      "name": "Benutzer*in"
     }
   },
   "global": {
