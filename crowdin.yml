@@ -1,3 +1,9 @@
 files:
   - source: frontend/src/locales/en.json
     translation: frontend/src/locales/%two_letters_code%.json
+  - source: /common/locales/en.json
+    translation: /common/locales/%two_letters_code%.json
+  - source: /api/translations/email+intl-icu.en.json
+    translation: /api/translations/email+intl-icu.%two_letters_code%.json
+  - source: /api/translations/validators.en.yml
+    translation: /api/translations/validators.%two_letters_code%.yml
