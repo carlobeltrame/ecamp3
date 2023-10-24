@@ -13,6 +13,7 @@
           "name": "Colonne"
         }
       },
+      "icon": "mdi-format-columns",
       "name": "Disposition des colonnes"
     },
     "laThematicArea": {
@@ -44,18 +45,22 @@
           }
         }
       },
+      "icon": "mdi-shape",
       "info": "Une activité de camp J+S doit aborder au moins un des sujets énumérés.{br}Sélectionne les sujets abordés dans ce bloc.",
       "name": "Domaine thématique AC"
     },
     "material": {
+      "icon": "mdi-package-variant",
       "info": "Tu peux saisir ici les besoins en matériel pour ce bloc.{br}Tu peux gérer les listes de matériel dans le menu 'Admin'.{br}Tu peux trouver un résumé des achats dans le menu 'Matériel'.",
       "name": "Matériel"
     },
     "notes": {
+      "icon": "mdi-pen",
       "info": "Tu peux y inscrire tes notes, par exemple des idées, des tâches à faire, des questions ouvertes, des contacts, des correspondances avec les transports publics, etc.",
       "name": "Notes"
     },
     "safetyConcept": {
+      "icon": "mdi-security",
       "info": "Certains blocs nécessitent de réfléchir aux risques. Tu peux enregistrer ces réflexions ici.{br}Enregistre les risques que tu as identifiés - et comment tu peux y faire face.",
       "name": "Concept de sécurité"
     },
@@ -70,10 +75,12 @@
           "name": "Section du programme | Sections du programme"
         }
       },
+      "icon": "mdi-script-text-outline",
       "info": "Ici, tu peux planifier le contenu de ce bloc.{br}Dans la colonne de gauche [Temps], tu peux enregistrer la durée des différents éléments.{br}Dans la colonne de droite [Responsable], tu peux assigner des personnes.",
       "name": "Programme"
     },
     "storycontext": {
+      "icon": "mdi-book-open-variant",
       "info": "Décris comment ce bloc s'intègre dans l'histoire du camp.{br}Tu peux trouver un résumé de tous les éléments de l'histoire dans le menu 'Histoire'.{br}Tu peux aussi d'abord élaborer une histoire continue dans le menu 'Histoire' - pour que tu puisses parfaitement intégrer le contenu du bloc dans l'histoire.",
       "name": "Histoire"
     }
@@ -107,6 +114,7 @@
         "addressName": "Nom",
         "addressStreet": "Rue",
         "addressZipcode": "Code postal",
+        "coachName": "Name of Y+S coach",
         "courseKind": "Type de cours (pour les cours J+S: description du cours)",
         "courseNumber": "Numéro de cours",
         "kind": "Type de camp (chalet, tente, itinérant, été, automne)",
