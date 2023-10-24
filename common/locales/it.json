@@ -13,6 +13,7 @@
           "name": "Colonna"
         }
       },
+      "icon": "mdi-format-columns",
       "name": "Layout delle colonne"
     },
     "laThematicArea": {
@@ -44,18 +45,22 @@
           }
         }
       },
+      "icon": "mdi-shape",
       "info": "Un'attività del campo Y+S deve trattare almeno uno degli argomenti elencati.{br}Seleziona gli argomenti da trattare in questo blocco.",
       "name": "Area tematica AC"
     },
     "material": {
+      "icon": "mdi-package-variant",
       "info": "Qui puoi inserire i requisiti del materiale per questo blocco.{br}Puoi gestire gli elenchi dei materiali nel menu 'Amministrazione'.{br}Puoi trovare un riepilogo degli acquisti nel menu 'Materiale'.",
       "name": "Materiale"
     },
     "notes": {
+      "icon": "mdi-pen",
       "info": "Qui puoi inserire qualsiasi nota, ad esempio idee, impegni, domande aperte, contatti, collegamenti con i mezzi pubblici, ecc.",
       "name": "Noti"
     },
     "safetyConcept": {
+      "icon": "mdi-security",
       "info": "Alcuni blocchi richiedono una riflessione sui rischi. Qui puoi registrare questi pensieri.{br}Registra i rischi che hai identificato e come puoi affrontarli.",
       "name": "Concetto di sicurezza"
     },
@@ -70,10 +75,12 @@
           "name": "Sezione del programma | Sezioni del programma"
         }
       },
+      "icon": "mdi-script-text-outline",
       "info": "Qui puoi pianificare il contenuto di questo blocco.{br}Nella colonna di sinistra [Tempo] puoi registrare la durata dei singoli elementi.{br}Nella colonna di destra [Responsabile] puoi assegnare delle persone.",
       "name": "Programma"
     },
     "storycontext": {
+      "icon": "mdi-book-open-variant",
       "info": "Descrivi come questo blocco si inserisce nella storia del campo.{br}Puoi trovare un riepilogo di tutti gli elementi della storia nel menu \"Storia\".{br}Puoi anche elaborare prima una storia continua nel menu \"Storia\", in modo da incorporare perfettamente il contenuto del blocco nella storia.",
       "name": "Storia"
     }
@@ -107,15 +114,31 @@
         "addressName": "Nome",
         "addressStreet": "Via",
         "addressZipcode": "Codice postale",
+        "coachName": "Name of Y+S coach",
+        "courseKind": "Course kind (for Y+S courses: Y+S course term)",
+        "courseNumber": "Course number",
+        "kind": "Camp kind (house, tent, traveling, summer, autumn)",
         "motto": "Motto",
         "name": "Nome",
-        "title": "Titolo"
+        "organizer": "Organizer",
+        "printYSLogoOnPicasso": "Print the Y+S logo on the picasso (required for Y+S courses)",
+        "title": "Titolo",
+        "trainingAdvisorName": "Name of training advisor"
       },
       "name": "Campo",
       "prototype": "Modello di campo"
     },
     "campCollaboration": {
-      "inactive": "non attivo"
+      "fields": {
+        "inviteEmail": "Email",
+        "role": "Role",
+        "status": "Status"
+      },
+      "status": {
+        "established": "Active",
+        "inactive": "Inactive",
+        "invited": "Invited"
+      }
     },
     "category": {
       "fields": {
@@ -194,6 +217,12 @@
       "title": "Pagina di copertina"
     },
     "picasso": {
+      "picassoFooter": {
+        "coach": "Coach: {coach}",
+        "courseNumber": "Course number: {courseNumber}",
+        "leaders": "Lead: {leaders}",
+        "trainingAdvisor": "Training advisor: {trainingAdvisor}"
+      },
       "title": "Panoramica del programma {period}"
     },
     "program": {
