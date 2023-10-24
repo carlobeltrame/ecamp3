@@ -5,7 +5,7 @@
         "columnLayout": {
           "columnOperations": {
             "addColumn": "Spalte hinzufügen",
-            "removeColumn": "Leere Spalte entfernen"
+            "removeColumn": "Leere letzte Spalte entfernen"
           }
         },
         "storyboard": {
