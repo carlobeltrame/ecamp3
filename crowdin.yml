@@ -1,6 +1,6 @@
 files:
-  - source: frontend/src/locales/en.json
-    translation: frontend/src/locales/%two_letters_code%.json
+  - source: /frontend/src/locales/en.json
+    translation: /frontend/src/locales/%two_letters_code%.json
   - source: /common/locales/en.json
     translation: /common/locales/%two_letters_code%.json
   - source: /api/translations/email+intl-icu.en.json
