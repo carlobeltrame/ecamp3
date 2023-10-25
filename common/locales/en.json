@@ -2,7 +2,7 @@
   "components": {
     "story": {
       "storyDay": {
-        "noStory": "No story content found on this day..."
+        "noStory": "No story content found on this day…"
       }
     }
   },
@@ -56,7 +56,7 @@
     },
     "notes": {
       "icon": "mdi-pen",
-      "info": "Here you can enter any notes.{br}e.g. ideas, todo's, open questions, contacts, public transport connections, etc.",
+      "info": "Here you can enter any notes.{br}e.g. ideas, todos, open questions, contacts, public transport connections, etc.",
       "name": "Notes"
     },
     "safetyConcept": {
