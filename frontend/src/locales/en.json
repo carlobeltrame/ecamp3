@@ -8,6 +8,9 @@
             "removeColumn": "Remove empty column"
           }
         },
+        "lAThematicArea": {
+          "placeholder": "Choose thematic area"
+        },
         "storyboard": {
           "controls": "Controls",
           "reorder": "Reorder",
@@ -17,13 +20,25 @@
           }
         }
       },
+      "copyActivityInfoDialog": {
+        "allow": "Allow now",
+        "denied": "You have denied access to your clipboard. Therefore, you cannot paste copied activities.",
+        "description": "In order to paste a copied activity, you must allow eCamp to read your clipboard.",
+        "granted": "You can now paste copied activities.",
+        "title": "Copy & paste activity"
+      },
       "menuCardlessContentNode": {
         "deletingDisabled": "Must be empty to delete"
       },
       "scheduleEntry": {
         "backToContents": "Back to editing content",
         "changeLayout": "Change layout",
+        "copyScheduleEntry": "Copy activity",
         "deleteWarning": "Do you really want to delete this activity? All content of this activity will be removed."
+      },
+      "togglePaperSize": {
+        "switchToFullSize": "Switch to full size",
+        "switchToPaperSize": "Switch to paper size"
       }
     },
     "camp": {
@@ -39,8 +54,10 @@
         "create": "Create a state",
         "deleteError": "State can't be deleted. It is still used.",
         "deleteWarning": "Do you really want to delete this state?",
+        "exit": "Exit reordering",
         "moveDown": "Move down",
         "moveUp": "Move up",
+        "reorder": "Reorder",
         "title": "Activity state"
       },
       "campAddress": {
@@ -48,9 +65,6 @@
       },
       "campCategories": {
         "create": "Create activity category",
-        "deleteCategoryNotPossibleInUse": "Activity category can't be deleted. It is used by:",
-        "deleteCategoryQuestion": "Do you really want do delete the Activity category?",
-        "editLayout": "Edit template",
         "title": "Activity categories"
       },
       "campConditionalFields": {
@@ -100,6 +114,9 @@
       "dialogActivityProgressLabelCreate": {
         "title": "Create activity state"
       },
+      "dialogActivityProgressLabelEdit": {
+        "title": "Edit activity state"
+      },
       "dialogCategoryCreate": {
         "title": "Create activity category"
       },
@@ -120,6 +137,45 @@
       },
       "dialogPeriodEdit": {
         "moveScheduleEntries": "Move schedule entries"
+      },
+      "errorExistingActivitiesList": {
+        "description": "Cannot be deleted. Still used by the following activities:"
+      }
+    },
+    "campCreate": {
+      "campCreate": {
+        "steps": {
+          "configurate": "Configure",
+          "infos": "Info",
+          "template": "Template"
+        }
+      },
+      "campCreateStep1": {
+        "submitTooltip": "Please fill out all required fields."
+      },
+      "campCreateStep2": {
+        "category": "Activity categories",
+        "create": "Create the Camp",
+        "noContent": "No Content",
+        "noPrototype": "No template",
+        "noPrototypeAlert": {
+          "description": "You must make all settings manually. There are no block templates & layouts available. This is only suitable for experienced users.",
+          "title": "Attention: You chose \"No template\"."
+        },
+        "preview": "Preview of camp template",
+        "progressStates": "Activity states",
+        "prototypeHint": "Copy categories, activity templates and states from a template.",
+        "prototypeHintEmpty": "Don't copy categories, activity templates and states.",
+        "prototypeHintSelected": "Copy categories, activity templates and states from this template.",
+        "submitTooltipPrototype": "You need to choose if and which template you want."
+      }
+    },
+    "category": {
+      "categoryTemplate": {
+        "contents": "Contents",
+        "createLayoutHelp": "Here you can define the template for new {categoryShort} activities.{br}The content & layout of already created {categoryShort} activities will not be adjusted.",
+        "layout": "Layout",
+        "noTemplate": "No template"
       }
     },
     "collaborator": {
@@ -153,8 +209,7 @@
     },
     "dialog": {
       "dialogEntityDelete": {
-        "title": "Really delete?",
-        "warningText": "Do you really want to delete this?"
+        "title": "Really delete?"
       }
     },
     "form": {
@@ -290,6 +345,15 @@
       }
     },
     "program": {
+      "dialogActivityCreate": {
+        "clearClipboard": "Clear clipboard",
+        "clipboard": "Clipboard",
+        "copyActivity": "Copy activity",
+        "copyActivityContent": "Copy content from activity",
+        "copyPastActivity": "Copy & paste activity",
+        "copySourceInfo": "Here you can paste the URL of an activity to copy its contents.",
+        "pasteActivity": "paste activity"
+      },
       "formScheduleEntryItem": {
         "end": "End",
         "start": "Start"
@@ -315,8 +379,7 @@
     },
     "prompt": {
       "promptEntityDelete": {
-        "title": "Really delete?",
-        "warningText": "Do you really want to delete this? | Do you really want to delete \"{entity}\"?"
+        "title": "Really delete?"
       }
     },
     "toast": {
@@ -362,6 +425,7 @@
       "cancel": "Cancel",
       "close": "Close",
       "content": "Content",
+      "continue": "Continue",
       "create": "Create",
       "delete": "Delete",
       "discard": "Discard",
@@ -375,6 +439,7 @@
       "move": "Move",
       "ok": "OK",
       "open": "Open",
+      "remove": "Remove",
       "rename": "Rename",
       "save": "Save",
       "saving": "Saving",
@@ -395,7 +460,6 @@
     },
     "language": "English",
     "loading": "Loading …",
-    "lokaliseMessage": "Language switching powered by lokalise.com",
     "navigation": {
       "admin": {
         "title": "Admin"
@@ -405,21 +469,20 @@
       "409": "Uuuups... This action caused an server-side error.",
       "short": "Server error"
     },
+    "toast": {
+      "copied": "{source} copied"
+    },
     "validation": {
       "greaterThanOrEqual_date": "{_field_} may not be earlier than {min}",
       "greaterThan_time": "{_field_} must be later than {min}",
       "lessThanOrEqual_date": "{_field_} may not be later than {max}"
+    },
+    "warning": {
+      "delete": "Do you really want to delete this? | Do you really want to delete \"{entity}\"?"
     }
   },
   "views": {
     "activity": {
-      "category": {
-        "changeLayout": "Change template layout",
-        "contents": "Contents",
-        "createLayoutHelp": "Here you can define how new {categoryShort} activities should look by default.{br}Note: If you already have {categoryShort} activities in the camp, they will not be automatically adjusted.",
-        "editContents": "Set template contents",
-        "layout": "Layout"
-      },
       "printPreview": "Open print preview",
       "sideBarProgram": {
         "title": "Activities on this day"
@@ -588,11 +651,6 @@
       }
     },
     "campCreate": {
-      "create": "Create the Camp",
-      "period": {
-        "add": "Add a period",
-        "remove": "Remove period"
-      },
       "title": "Create a Camp"
     },
     "camps": {
@@ -600,6 +658,16 @@
       "pastCamps": "Past camps",
       "prototypeCamps": "Prototypes",
       "title": "My Camps"
+    },
+    "category": {
+      "category": {
+        "deleteCategory": "Delete category",
+        "properties": "Properties",
+        "template": "Template for new activities"
+      },
+      "sideBarCategory": {
+        "title": "Categories"
+      }
     },
     "material": {
       "materialLists": {
