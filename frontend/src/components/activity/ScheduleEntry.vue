@@ -142,6 +142,16 @@ Displays a single scheduleEntry
 
           <v-divider />
 
+          <!-- reset the contents of the whole activity to the template from the category -->
+          <v-list-item :disabled="!isContributor">
+            <v-list-item-icon>
+              <v-icon>mdi-refresh</v-icon>
+            </v-list-item-icon>
+            <v-list-item-title>
+              {{ $tc('components.activity.scheduleEntry.resetToCategoryTemplate') }}
+            </v-list-item-title>
+          </v-list-item>
+
           <!-- remove activity -->
           <DialogEntityDelete :entity="activity" @submit="onDelete">
             <template #activator="{ on }">
