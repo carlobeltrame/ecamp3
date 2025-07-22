@@ -1,0 +1,45 @@
+name: 'Summarize changes on staging and prod PRs'
+
+on:
+  pull_request:
+    branches: [staging, prod]
+
+jobs:
+  summarize-changes:
+    name: Summarize changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Compute summary text
+        id: summary
+        run: |
+          git fetch --all
+          SUMMARY=$(git log origin/${{ github.event.pull_request.base.ref }}..origin/${{ github.event.pull_request.head.ref }} --merges --first-parent --perl-regexp --grep='from ecamp/renovate/' --invert-grep | grep 'Merge pull request' | awk '{print "- "$4}' | tac)
+          echo $SUMMARY
+          echo summary=$SUMMARY >> $GITHUB_OUTPUT
+
+      - name: Comment summary on PR
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          pr-number: ${{ github.event.pull_request.number }}
+          message: |
+            ### <span aria-hidden="true">🏗️</span> Changes in this deployment
+
+            Includes the following non-renovate PRs:
+            ${{ steps.summary.outputs.summary }}
+
+            <details>
+            <summary><small>Code to generate this overview</small></summary>
+
+            The above can be output locally using the following command:
+            ```bash
+            echo 'Includes the following non-renovate PRs:' && git log origin/${{ github.base_ref }}..origin/${{ github.head_ref }} --merges --first-parent --perl-regexp --grep='from ecamp/renovate/' --invert-grep | grep "Merge pull request" | awk '{print "- "$4}' | tac
+            ```
+
+            </details>
+
+          comment-tag: deployment-pr-summary
