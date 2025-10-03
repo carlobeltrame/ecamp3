@@ -6,7 +6,7 @@
   >
     <draggable
       class="e-checklist-dragarea--inner"
-      :list="sortedItems"
+      :list="localSortedItems"
       ghost-class="e-sortable-checklist-item--ghost"
       handle=".drag-and-drop-handle"
       filter=".add-item"
