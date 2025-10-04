@@ -6,7 +6,6 @@
     :color="color"
     :icon="btnIcon && iconOnly"
     v-bind="$attrs"
-    v-on="$listeners"
   >
     <v-icon v-if="iconOnly">{{ icon }}</v-icon>
     <v-icon v-else-if="!text" :start="$vuetify.display.smAndUp">{{ icon }}</v-icon>

@@ -17,7 +17,7 @@
         :min-width="minWidth"
         :max-width="maxWidth"
         :column-height="columnHeight"
-        v-on="$listeners"
+        v-bind="$attrs"
       />
       <div v-else class="ec-column-head"></div>
     </template>

@@ -4,7 +4,7 @@
     min-width="0"
     :color="color"
     v-bind="$attrs"
-    v-on="$listeners"
+    v-bind="$attrs"
   >
     <v-icon :left="!hideLabel" size="150%">{{ icon }}</v-icon>
     <span :class="{ 'd-sr-only': hideLabel }">

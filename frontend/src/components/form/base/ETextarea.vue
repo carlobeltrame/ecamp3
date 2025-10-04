@@ -16,7 +16,6 @@
     :label="labelOrEntityFieldLabel"
     :with-extensions="false"
     v-bind="$attrs"
-    v-on="$listeners"
   >
     <!-- passing through all slots -->
     <template v-for="(_, name) in $slots" #[name]>

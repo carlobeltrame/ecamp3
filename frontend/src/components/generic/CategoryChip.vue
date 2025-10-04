@@ -1,11 +1,5 @@
 <template>
-  <GenericChip
-    v-if="!loading"
-    :color="cat.color"
-    :text-color="textColor"
-    v-bind="$attrs"
-    v-on="$listeners"
-  >
+  <GenericChip v-if="!loading" :color="cat.color" :text-color="textColor" v-bind="$attrs">
     <slot>
       <span class="d-sr-only">
         {{ cat.name }}
@@ -16,7 +10,7 @@
     </slot>
     <slot name="after" />
   </GenericChip>
-  <GenericChip v-else v-bind="$attrs" v-on="$listeners"
+  <GenericChip v-else v-bind="$attrs"
     ><span class="d-sr-only">{{ $t('global.loading') }}</span
     ><span aria-hidden="true">·&#x202f;·&#x202f;·</span></GenericChip
   >

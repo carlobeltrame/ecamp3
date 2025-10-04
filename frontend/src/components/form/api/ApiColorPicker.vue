@@ -3,7 +3,7 @@ Displays a field as a color picker + write access via API wrapper
 -->
 
 <template>
-  <api-wrapper v-slot="wrapper" v-bind="$props" v-on="$listeners">
+  <api-wrapper v-slot="wrapper" v-bind="$attrs">
     <e-color-picker
       :value="wrapper.localValue || ''"
       v-bind="$attrs"

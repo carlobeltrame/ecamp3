@@ -1,10 +1,5 @@
 <template>
-  <v-chip
-    v-bind="$attrs"
-    :class="{ 'v-chip--dense': dense }"
-    variant="flat"
-    v-on="$listeners"
-  >
+  <v-chip v-bind="$attrs" :class="{ 'v-chip--dense': dense }" variant="flat">
     <slot />
   </v-chip>
 </template>

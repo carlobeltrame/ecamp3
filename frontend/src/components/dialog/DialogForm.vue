@@ -6,7 +6,6 @@
     eager
     v-bind="$attrs"
     :max-width="maxWidth"
-    v-on="$listeners"
     @update:model-value="onInput"
   >
     <template #activator="scope">

@@ -1,5 +1,5 @@
 <template>
-  <v-btn icon tile height="40" width="42" color="black" class="rounded" v-on="$listeners">
+  <v-btn icon tile height="40" width="42" color="black" class="rounded" v-bind="$attrs">
     <v-icon>{{ icon }}</v-icon>
   </v-btn>
 </template>

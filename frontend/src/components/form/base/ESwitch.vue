@@ -14,7 +14,6 @@
     :model-value="value"
     inset
     v-bind="$attrs"
-    v-on="$listeners"
     @update:model-value="$emit('input', $event)"
   >
     <!-- passing through all slots -->

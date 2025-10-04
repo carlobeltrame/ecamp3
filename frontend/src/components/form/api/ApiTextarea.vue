@@ -3,7 +3,7 @@ Displays a field as a e-textarea + write access via API wrapper
 -->
 
 <template>
-  <api-wrapper v-slot="wrapper" v-bind="$props" separate-buttons v-on="$listeners">
+  <api-wrapper v-slot="wrapper" v-bind="$attrs" separate-buttons>
     <e-textarea
       :value="wrapper.localValue"
       v-bind="$attrs"

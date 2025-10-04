@@ -1,5 +1,5 @@
 <template>
-  <v-btn color="primary" v-bind="$attrs" v-on="$listeners">
+  <v-btn color="primary" v-bind="$attrs">
     {{ $t('global.button.continue') }}
   </v-btn>
 </template>

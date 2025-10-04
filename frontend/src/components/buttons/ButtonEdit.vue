@@ -5,7 +5,6 @@
     color="primary"
     :icon="icon"
     v-bind="$attrs"
-    v-on="$listeners"
   >
     <slot>{{ $t('global.button.edit') }}</slot>
   </IconButton>

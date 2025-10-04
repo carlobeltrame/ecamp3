@@ -21,7 +21,6 @@
       :readonly="readonly"
       :append-icon="readonly ? null : '$dropdown'"
       :filter="tokensFilter"
-      v-on="$listeners"
     >
       <template #item="{ item, on, attrs }">
         <v-list-item v-bind="attrs" v-on="on">

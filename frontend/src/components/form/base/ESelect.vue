@@ -19,7 +19,6 @@
     v-bind="$attrs"
     :readonly="readonly"
     :append-icon="readonly ? null : '$dropdown'"
-    v-on="$listeners"
   >
     <!-- passing through all slots -->
     <template v-for="(_, name) in $slots" #[name]>

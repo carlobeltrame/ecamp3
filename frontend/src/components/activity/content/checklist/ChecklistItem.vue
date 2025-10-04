@@ -15,7 +15,7 @@
         :key="child._meta.self"
         :checklist="checklist"
         :item="child"
-        v-on="$listeners"
+        v-bind="$attrs"
       />
     </ol>
   </li>

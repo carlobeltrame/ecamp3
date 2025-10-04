@@ -1,5 +1,5 @@
 <template>
-  <v-list-item class="px-2 rounded e-collaborator-item" two-line v-on="$listeners">
+  <v-list-item class="px-2 rounded e-collaborator-item" two-line v-bind="$attrs">
     <v-list-item-action>
       <user-avatar size="40" :camp-collaboration="collaborator" omit-sr />
     </v-list-item-action>

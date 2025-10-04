@@ -15,7 +15,7 @@
         tabindex="-1"
         icon-only
       />
-      <div class="e-pages-config__inner" v-bind="$attrs" v-on="$listeners">
+      <div class="e-pages-config__inner" v-bind="$attrs">
         <div class="e-pages-config__scroller">
           <v-icon v-if="template" class="ma-auto" size="x-large">mdi-plus</v-icon>
           <h3
@@ -45,7 +45,7 @@
       />
     </div>
   </div>
-  <v-list-item v-else-if="template" class="py-2 px-0" v-bind="$attrs" v-on="$listeners">
+  <v-list-item v-else-if="template" class="py-2 px-0" v-bind="$attrs">
     <v-list-item-icon class="mr-0 my-0 px-4 py-2 align-self-baseline">
       <TextAlignBaseline><v-icon>mdi-plus</v-icon></TextAlignBaseline>
     </v-list-item-icon>

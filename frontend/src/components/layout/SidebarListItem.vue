@@ -1,5 +1,5 @@
 <template>
-  <v-list-item link :to="to" :href="href" v-on="$listeners">
+  <v-list-item link :to="to" :href="href" v-bind="$attrs">
     <slot name="pre">
       <v-list-item-icon v-if="!hideAvatar">
         <v-icon v-if="icon">{{ icon }}</v-icon>

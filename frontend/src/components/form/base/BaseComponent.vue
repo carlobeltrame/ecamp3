@@ -13,7 +13,6 @@
       :error-messages="veeErrors.concat(errorMessages)"
       :label.prop="labelOrEntityFieldLabel"
       :class="[inputClass]"
-      v-on="$listeners"
     >
       <!-- passing through all slots -->
       <template v-for="(_, name) in $slots" #[name]>

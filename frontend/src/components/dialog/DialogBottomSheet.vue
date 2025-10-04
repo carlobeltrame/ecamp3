@@ -4,7 +4,6 @@
     content-class="ec-dialog-form"
     eager
     :value="value"
-    v-on="$listeners"
     @input="onInput"
   >
     <template #activator="scope">

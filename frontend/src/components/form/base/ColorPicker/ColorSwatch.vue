@@ -10,7 +10,6 @@
     :ripple="false"
     v-bind="$attrs"
     @click="$emit('select-color', color)"
-    v-on="$listeners"
   ></v-btn>
 </template>
 <script>

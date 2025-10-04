@@ -1,5 +1,5 @@
 <template>
-  <v-list-item :disabled="disabled" v-on="$listeners">
+  <v-list-item :disabled="disabled" v-bind="$attrs">
     <v-list-item-icon>
       <v-icon v-if="value" :disabled="disabled">mdi-lock</v-icon>
       <v-icon v-else :disabled="disabled">mdi-lock-open-variant</v-icon>

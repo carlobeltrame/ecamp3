@@ -1,5 +1,5 @@
 <template>
-  <v-btn color="error" v-bind="$attrs" v-on="$listeners">
+  <v-btn color="error" v-bind="$attrs">
     <v-icon left>mdi-refresh</v-icon>
     {{ $t('global.button.tryagain') }}
   </v-btn>

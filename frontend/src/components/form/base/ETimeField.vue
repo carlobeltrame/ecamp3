@@ -11,7 +11,6 @@
     :vee-rules="veeRules"
     reset-on-blur
     v-bind="$attrs"
-    v-on="$listeners"
     @input="$emit('input', $event)"
   >
     <!-- passing through all slots -->

@@ -3,8 +3,7 @@
     v-if="$vuetify.display.smAndDown"
     :saving-override.sync="isSaving"
     :value="value"
-    v-bind="{ ...$props, ...$attrs }"
-    v-on="$listeners"
+    v-bind="$attrs"
   >
     <slot v-for="(_, name) in $slots" :slot="name" :name="name" />
     <template v-for="(_, name) in $slots" #[name]="slotData">
@@ -17,8 +16,7 @@
     content-class="ec-dialog-form"
     eager
     :value="value"
-    v-bind="{ ...$props, ...$attrs }"
-    v-on="$listeners"
+    v-bind="$attrs"
   >
     <template v-for="(_, name) in $slots" #[name]>
       <slot :name="name" />
