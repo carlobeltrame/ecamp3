@@ -7,7 +7,7 @@
       filter=".e-pages-config--template"
       class="e-pages-overview__grid pa-0 pa-md-8"
       v-bind="$attrs"
-      @update:model-value="$emit('update:modelValue', $event)"
+      @update:model-value="$emit('update:modelValue', modelValue)"
     >
       <template #item="slotProps">
         <div :key="slotProps.index">

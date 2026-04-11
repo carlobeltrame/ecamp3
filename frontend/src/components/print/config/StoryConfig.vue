@@ -8,15 +8,15 @@
       multiple
       :variant="periods.length === 1 ? 'plain' : 'underlined'"
       :readonly="periods.length === 1"
-      @update:model-value="$emit('input')"
+      @update:model-value="$emit('update:modelValue', modelValue)"
     />
     <div class="flex-grow-1"></div>
     <DialogScheduleEntryFilter
       :camp="camp"
       :filter-fn="filterFn()"
-      :filter="options.filter"
+      :model-value="options.filter"
       hide-period-filter
-      @input="updateFilter"
+      @update:model-value="updateFilter"
     />
   </div>
 </template>

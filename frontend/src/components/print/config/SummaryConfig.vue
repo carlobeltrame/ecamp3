@@ -6,7 +6,7 @@ export const SUMMARY_CONTENTTYPES = ['Storycontext', 'SafetyConsiderations']
 export default {
   name: 'SummaryConfig',
   props: {
-    value: { type: Object, required: true },
+    modelValue: { type: Object, required: true },
     camp: { type: Object, required: true },
   },
   data() {
@@ -17,10 +17,10 @@ export default {
   computed: {
     options: {
       get() {
-        return this.value
+        return this.modelValue
       },
       set(v) {
-        this.$emit('input', v)
+        this.$emit('update:modelValue', v)
       },
     },
     periods() {
@@ -48,7 +48,7 @@ export default {
     },
     updateFilter(newFilter) {
       this.options.filter = newFilter
-      this.$emit('input')
+      this.$emit('update:modelValue', this.options)
     },
   },
 }

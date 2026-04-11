@@ -6,7 +6,7 @@
     icon="mdi-filter"
     :cancel-action="close"
     :cancel-visible="false"
-    @input="emit"
+    @update:model-value="emit"
   >
     <template #activator="{ props }">
       <v-chip
@@ -29,6 +29,7 @@
       :hide-self-filter="isOutsider"
       :hide-period-filter="hidePeriodFilter"
       :hide-day-filter="hideDayFilter"
+      @update:model-value="$emit('update:modelValue', $event)"
     />
     <template #moreActions>
       {{ resultCountLabel }}
@@ -47,15 +48,15 @@ export default {
   props: {
     camp: { type: Object, required: true },
     filterFn: { type: Function, required: true },
-    filter: { type: Object, required: true },
+    modelValue: { type: Object, required: true },
     hidePeriodFilter: { type: Boolean, default: false },
     hideDayFilter: { type: Boolean, default: false },
   },
-  emits: ['input'],
+  emits: ['update:modelValue'],
   data() {
     return {
       dialogOpen: false,
-      localFilter: this.filter,
+      localFilter: this.modelValue,
     }
   },
   computed: {
@@ -98,7 +99,7 @@ export default {
     filteredCount: {
       handler(val) {
         this.localFilter.activityCount = val
-        this.$emit('input', this.localFilter)
+        this.$emit('update:modelValue', this.localFilter)
       },
       immediate: true,
     },
@@ -106,7 +107,7 @@ export default {
   methods: {
     emit(dialogOpen) {
       if (dialogOpen) return // only emit when closing dialog
-      this.$emit('input', this.localFilter)
+      this.$emit('update:modelValue', this.localFilter)
     },
     close() {
       this.dialogOpen = false

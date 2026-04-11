@@ -7,7 +7,7 @@
       :items="scheduleEntries"
       :label="$t('components.print.config.activityConfig.activity')"
       variant="underlined"
-      @update:model-value="$emit('input')"
+      @update:model-value="$emit('update:modelValue', modelValue)"
     />
     <v-skeleton-loader v-else type="image" height="56" />
   </div>
@@ -17,16 +17,16 @@
 export default {
   name: 'ActivityConfig',
   props: {
-    value: { type: Object, required: true },
+    modelValue: { type: Object, required: true },
     camp: { type: Object, required: true },
   },
   computed: {
     options: {
       get() {
-        return this.value
+        return this.modelValue
       },
       set(v) {
-        this.$emit('input', v)
+        this.$emit('update:modelValue', v)
       },
     },
     optionsScheduleEntry: {

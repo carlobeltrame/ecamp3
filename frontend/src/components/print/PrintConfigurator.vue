@@ -14,9 +14,9 @@
         >
           <component
             :is="contentComponents[content.type]"
-            :value="content.options"
+            :model-value="content.options"
             :camp="camp"
-            @input="onChange"
+            @update:model-value="onChangeContentConfig(idx, $event)"
           />
         </PagesConfig>
       </template>
@@ -59,14 +59,14 @@
               <e-checkbox
                 v-model="cnf.options.pageNumbers"
                 :label="$t('components.print.printConfigurator.pageNumbers')"
-                @input="onChange"
+                @update:model-value="onChange"
               />
               <e-select
                 v-model="cnf.options.pageSize"
                 class="mt-4"
                 :items="pageSizes"
                 :label="$t('components.print.printConfigurator.fontSize')"
-                @input="onChange"
+                @update:model-value="onChange"
               />
             </v-expansion-panel-text>
           </v-expansion-panel>
@@ -292,6 +292,10 @@ export default {
           printConfig: cloneDeep(JSON.parse(jsonStringifyReactiveValue(this.cnf))),
         })
       })
+    },
+    onChangeContentConfig(index, value) {
+      this.cnf.contents[index].options = value
+      this.onChange()
     },
     repairConfig(config) {
       const repairers = Object.fromEntries(

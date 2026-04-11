@@ -6,7 +6,7 @@
 export default {
   name: 'CoverConfig',
   props: {
-    value: { type: Object, required: true },
+    modelValue: { type: Object, required: true },
   },
   defaultOptions() {
     return {}
