@@ -90,7 +90,7 @@ export default {
         return knownPeriods.includes(period)
       })
     }
-    config.options.filter = repairFilterConfig(config, camp)
+    config.options.filter = repairFilterConfig(config.options.filter, camp)
     return config
   },
 }

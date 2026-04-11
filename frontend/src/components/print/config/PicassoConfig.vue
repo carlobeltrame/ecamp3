@@ -116,7 +116,7 @@ export default {
     if (!['L', 'P'].includes(config.options.orientation)) {
       config.options.orientation = 'L'
     }
-    config.options.filter = repairFilterConfig(config, camp)
+    config.options.filter = repairFilterConfig(config.options.filter, camp)
     return config
   },
 }

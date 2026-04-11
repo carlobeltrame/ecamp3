@@ -98,7 +98,7 @@ export default {
       })
     }
     if (typeof config.options.dayOverview !== 'boolean') config.options.dayOverview = true
-    config.options.filter = repairFilterConfig(config, camp)
+    config.options.filter = repairFilterConfig(config.options.filter, camp)
     return config
   },
 }
