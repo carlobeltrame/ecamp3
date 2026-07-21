@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      DB_CPU_LIMIT: 4
+      DB_CPU_LIMIT: 2
     strategy:
       fail-fast: false
       matrix:

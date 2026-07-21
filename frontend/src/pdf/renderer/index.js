@@ -17,7 +17,7 @@ const pdf = (root, props, onProgress) => {
 
   const toBlob = async () => {
     const chunks = []
-    const instance = await render()
+    const instance = await render(false)
 
     return new Promise((resolve, reject) => {
       instance.on('data', (chunk) => {
