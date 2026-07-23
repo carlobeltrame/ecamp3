@@ -16,7 +16,8 @@ jobs:
   e2e-tests-run:
     name: 'Tests: End-to-end'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # DIAGNOSTIC branch: raised for the 6x reliably-hanging clientPrint probe.
+    timeout-minutes: 45
     env:
       DB_CPU_LIMIT: 2
     strategy:

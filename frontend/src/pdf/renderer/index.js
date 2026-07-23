@@ -17,14 +17,21 @@ const pdf = (root, props, onProgress) => {
 
   const toBlob = async () => {
     const chunks = []
-    const instance = await render(false)
+    // DIAGNOSTIC: compression ON + (patch removed on this branch) to reproduce the original
+    // reliable hang, and log each streamed chunk so we can see whether the abort point is
+    // deterministic (same chunk index every time) or varies.
+    const instance = await render(true)
+    let n = 0
 
     return new Promise((resolve, reject) => {
       instance.on('data', (chunk) => {
         chunks.push(chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk))
+
+        console.log('PDFCHUNK', n++, chunk.length)
       })
 
       instance.on('end', () => {
+        console.log('PDFEND', n)
         try {
           const blob = new Blob(chunks, { type: 'application/pdf' })
           resolve(blob)
