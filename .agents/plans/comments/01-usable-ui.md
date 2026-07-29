@@ -19,6 +19,7 @@ the comments request, and every string is hardcoded German.
 | --------------------------------------------------------- | ---------------------------------------------------- |
 | Any way to discover comments without opening the activity | 02                                                   |
 | Camp-level comments, orphan comments                      | 02                                                   |
+| A cross-camp overview                                     | 06                                                   |
 | Replies, resolve/unresolve                                | 03                                                   |
 | Anchoring to text ranges, checkboxes, schedule entries    | 04                                                   |
 | Editing a comment                                         | never — see epic decision 3                          |
@@ -28,14 +29,21 @@ the comments request, and every string is hardcoded German.
 
 ## Backend changes
 
-**None.** No migration, no entity change, no new test.
+**One line.** No migration.
 
 `GET /comments?camp=/camps/x` already works: the plain `GetCollection` plus the existing
 `#[ApiFilter(SearchFilter::class, properties: ['camp', 'activity'])]`, scoped by
 `CommentRepository::filterByUser`.
 
-Epic decision 2 (removing `CAMP_IS_PUBLIC` from the item-level `Get`) is a one-line backend change
-that _may_ land here if product signs off. It is not required for this phase to work.
+Per epic decision 2, drop `is_granted("CAMP_IS_PUBLIC", object)` from the item-level `Get` security
+expression in `api/src/Entity/Comment.php`, and update the corresponding assertion in
+`api/tests/Api/Comments/ReadCommentTest.php`. Do it now, before the feature is visible anywhere —
+the item operation currently allows what `filterByUser` denies for collections, and every later
+phase would otherwise have to answer "what does an anonymous user do here". Guests keep full access;
+`CAMP_COLLABORATOR` includes the `guest` role. The epic records the read-only-public-camp use case
+and the shapes it could take later.
+
+This does not change any serialization group, so **no snapshot regeneration**.
 
 ## Frontend changes
 
@@ -98,10 +106,12 @@ Props: `camp`, `activity`. Emits: `created`.
 `<ScheduleEntry>`, plus an `immediate` watcher calling `setCommentScope` and `clearCommentScope` on
 unmount. The `featureCommentsEnabled` computed moves to `App.vue`.
 
-**`frontend/src/locales/en.json`** — roughly nine keys under `components.comments.*`, mirroring the
-file tree convention. **`en.json` only**; crowdin generates de/fr/it/rm and the `-CH-scout`
-overlays. Reuse existing shared keys where they fit: `global.button.delete`,
-`global.datetime.dateTimeLong`, `components.prompt.promptEntityDelete.title`.
+**`frontend/src/locales/en.json` and `de.json`** — roughly nine keys under `components.comments.*`,
+mirroring the file tree convention. See the epic's Translations section: `en.json` is the Crowdin
+source, `de.json` is hand-written alongside it by repo convention, and fr/it are fine to hand-write
+if you know the Swiss scouting and J+S terminology. Reuse existing shared keys where they fit:
+`global.button.delete`, `global.datetime.dateTimeLong`,
+`components.prompt.promptEntityDelete.title`.
 
 ### Deleted files
 
@@ -204,7 +214,9 @@ frontend/src/components/comments/__tests__/CommentsList.spec.js       new
 frontend/src/components/comments/__tests__/CommentComposer.spec.js    new
 frontend/src/App.vue                                       +4
 frontend/src/views/camp/activity/Activity.vue              -15
-frontend/src/locales/en.json                               +9 keys
+frontend/src/locales/en.json, de.json                      +9 keys
+api/src/Entity/Comment.php                                 -1 (CAMP_IS_PUBLIC on item Get)
+api/tests/Api/Comments/ReadCommentTest.php                 modified
 frontend/src/components/comments/Comments.vue              deleted
 frontend/src/components/comments/CommentWrapper.vue        deleted
 frontend/src/components/comments/Comment.vue               deleted
@@ -222,6 +234,8 @@ plus a schema migration.)
 ```bash
 docker compose exec frontend npm run test:unit
 docker compose exec frontend npm run lint
+docker compose exec api composer test tests/Api/Comments/ReadCommentTest.php
+docker compose exec api composer cs-fix
 docker compose run --rm prettier npm run lint:check   # for the .helm and root YAML changes
 ```
 
@@ -264,16 +278,17 @@ docker compose up -d
    covered by the FAB.
 7. Log in as a camp **guest**. The list is visible, the composer is not.
 8. Log in as an unrelated user and open the same activity by URL. No comments, no composer.
-9. Set `VITE_FEATURE_COMMENTS=false` and reload. No FAB, no drawer, activity page unchanged.
+9. Open a comment's item URL directly as an anonymous visitor to a **public** camp. It is now denied
+   (this is the `CAMP_IS_PUBLIC` removal).
+10. Set `VITE_FEATURE_COMMENTS=false` and reload. No FAB, no drawer, activity page unchanged.
 
 ## Open questions
 
-- **BLOCKING** — epic decisions 1 (fetch by camp) and 2 (`CAMP_IS_PUBLIC`) must be answered before
-  the first line is written. Defaults: yes, and remove.
 - Should the drawer be resizable? _Default: no._ Add if users complain about 320px.
-- Does a new comment invalidate the cached `/comments?camp=…` response behind Varnish? `Comment`
-  does not implement `CanGenerateTagsInterface` — check `api/src/HttpCache/PurgeHttpCacheListener.php`
-  during this phase. _Default assumption: it does not, and it needs fixing._
+- Caching: `Comment` does not implement `CanGenerateTagsInterface`, so a new comment probably does
+  not invalidate a cached `/comments?camp=…` response behind Varnish. Per the epic, comment caching
+  is accepted future work — caching is added one endpoint at a time. Just confirm during this phase
+  whether it bites in a deployed environment, and open a ticket if so. Do not fix it here.
 
 ## Done criteria
 
@@ -281,7 +296,8 @@ docker compose up -d
 - [ ] A guest can read but not write; an outsider sees nothing.
 - [ ] The activity page renders before the comments request resolves.
 - [ ] No comments request fires until the panel is opened for the first time.
-- [ ] No hardcoded strings; all keys added to `en.json` only.
+- [ ] No hardcoded strings; keys added to `en.json` and `de.json`.
+- [ ] `CAMP_IS_PUBLIC` removed from the item-level `Get`, with `ReadCommentTest` updated.
 - [ ] `Comments.vue`, `CommentWrapper.vue` and `Comment.vue` are deleted.
 - [ ] `npm run test:unit` and `npm run lint` pass in the `frontend` container.
 - [ ] `FEATURE_COMMENTS` is emitted by the Helm configmap and enabled on staging only.

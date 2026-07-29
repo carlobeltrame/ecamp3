@@ -41,7 +41,9 @@ Settle these first, because they determine the schema:
 
 ## Related
 
-Step 13 (cross-camp comments overview) is **not** part of this phase. Push notifies; an overview
-lets you go looking — different jobs. It is also cheaper than anything here: `GET /comments` with no
-parameters is already scoped to the caller's camps by `CommentRepository::filterByUser`, so it is one
-view and zero backend, roughly a day. Do it the first time someone asks.
+Step 13 (cross-camp comments overview) is **not** part of this phase — it has its own file,
+[06-cross-camp-overview.md](06-cross-camp-overview.md). Push notifies; an overview lets you go
+looking. Different jobs, and 06 is by far the cheaper one.
+
+Once 06 exists it is the natural landing page for a notification click, so keep its route stable and
+deep-linkable when planning this phase.

@@ -8,6 +8,10 @@ A comment becomes a conversation. Anyone in the camp can reply to a comment, and
 can mark a thread resolved — which collapses it out of the way, so the panel stops growing forever.
 A resolved thread can be reopened.
 
+Resolve is not a nicety here. Because nobody may delete or edit anybody else's comment
+(see the epic's "Who this is for"), resolving is the **only** way an addressed J+S condition or
+change request stops cluttering the panel. That is why step 6 ships with step 5 rather than later.
+
 Steps 5 and 6 ship together because they touch the same table, the same serialization groups and the
 same panel code. Apart, that is two migrations, two snapshot regenerations and two reworks of
 `CommentsList.vue`.
@@ -56,13 +60,15 @@ reference fork's `Comment.php`; a fourth ("replies inherit the anchor and carry 
 belongs to phase 04 and is added there.
 
 **Deletion, per epic decision 4:** the FK is **not** `onDelete: cascade`. The fork's cascade lets an
-author delete their root comment and silently destroy everyone else's replies. Refuse instead —
-either a `Delete` security expression or a state processor that 409s when `children` is non-empty.
-In the same change, add moderation:
+author delete their root comment and silently destroy everyone else's replies, which the
+traceability rule forbids. Refuse instead — either a `Delete` security expression or a state
+processor that 409s when `children` is non-empty.
 
-```php
-new Delete(security: 'object.author === user or is_granted("CAMP_MANAGER", object)'),
-```
+**Do not add moderation delete.** The fork also widens `Delete` to
+`object.author === user or is_granted("CAMP_MANAGER", object)`. We do not want that: a J+S coach's
+conditions and change requests must not be removable by the camp team. `Delete` stays
+`object.author === user`, unchanged from today. Resolving is the mechanism for getting an addressed
+comment out of the way — which is exactly why steps 5 and 6 ship together.
 
 Also add `parent` to the `SearchFilter` properties so the frontend can fetch a thread directly if it
 ever needs to.
@@ -128,7 +134,7 @@ api/migrations/schema/VersionYYYYMMDDHHMMSS.php                  new
 api/fixtures/comments.yml                                        +reply and resolved fixtures
 api/tests/Api/Comments/UpdateCommentTest.php                     rewritten (currently asserts 405)
 api/tests/Api/Comments/CreateCommentTest.php                     +reply cases
-api/tests/Api/Comments/DeleteCommentTest.php                     +root-with-replies, +manager
+api/tests/Api/Comments/DeleteCommentTest.php                     +root-with-replies, +manager-denied
 api/tests/Api/Comments/ListCommentsTest.php                      +parent filter
 api/tests/Api/SnapshotTests/__snapshots__/                       all three regenerated
 
@@ -159,7 +165,8 @@ API cases to add:
 - PATCH `{"textHtml": "..."}` → 400 "Extra attributes are not allowed" (proves no-edit holds);
 - PATCH as an unrelated user → 403/404;
 - DELETE a root that has replies → refused;
-- DELETE anyone's comment as a camp manager → 204.
+- DELETE another user's comment as a camp manager → **403** (there is no moderation delete; the
+  existing `DeleteCommentTest` already asserts this — keep that assertion, do not relax it).
 
 **Snapshots:** all three files under `api/tests/Api/SnapshotTests/__snapshots__/` break on the
 serialization-group change. Regenerate deliberately and read the OpenAPI diff — it is the
@@ -174,15 +181,15 @@ contract.
 3. Reopen it. It returns to the open list with the reply intact.
 4. As A, try to delete the root. The control is disabled with an explanation; deleting the reply
    first then the root works.
-5. As the camp manager, delete B's reply. It works.
-6. As a camp guest, confirm you can reply but the resolve control's behaviour matches the decision
-   taken (collaborator-level → a guest is a collaborator, so yes).
+5. As the camp manager, try to delete B's reply. There is no delete control, and a hand-crafted
+   `DELETE` returns 403.
+6. As a camp guest, confirm you can reply and resolve (a guest is a `CAMP_COLLABORATOR`).
 7. `curl -X PATCH` a comment with `{"textHtml": "hacked"}` and confirm 400.
+8. As B, resolve A's thread, then confirm A can still read it under "show resolved" and reopen it.
+   Nothing was destroyed.
 
 ## Open questions
 
-- **BLOCKING** — epic decisions 3 (no edit) and 4 (refuse deleting a root with replies) must be
-  final before the migration is written. Both are cheap now, migrations later.
 - Should guests be able to resolve? _Default: yes_ — `CAMP_COLLABORATOR` includes guests, and
   splitting the rule means a second security expression.
 - Should resolved threads be hidden by default or shown greyed? _Default: hidden behind a "show
@@ -195,6 +202,7 @@ contract.
 - [ ] A thread can be resolved and reopened by any collaborator; the resolver is recorded.
 - [ ] PATCH cannot change `textHtml`.
 - [ ] Deleting a root with replies is refused by the API and prevented in the UI.
-- [ ] Camp managers can delete anyone's comment.
+- [ ] No moderation delete was added — `Delete` is still `object.author === user`, and the existing
+      "manager cannot delete someone else's comment" assertion still passes.
 - [ ] All three snapshot files regenerated; `composer test tests/Api/Comments/` green.
 - [ ] Resolved threads collapse and do not clutter the panel.
