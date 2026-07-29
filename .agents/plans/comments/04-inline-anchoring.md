@@ -206,9 +206,18 @@ element references and callbacks, which have no business being reactive. Only th
 `(uri, path)`. The registry resolves the surface; the surface resolves the id.
 
 Positions are read on demand inside a `requestAnimationFrame` pass, never stored reactively.
-Grouping in the panel is `groupBy(comments, commentAnchorKey)`; thread order down the panel is
-`getBoundingClientRect().top` of each resolved element, with unresolved (orphaned) threads pinned to
-the bottom. That is Google Docs' ordering behaviour and it needs no backend ordering.
+
+**Ordering.** Phase 02 established the outer order: by activity in programme position, then
+`createTime`. This phase adds the level below it — within an activity, order by the anchor's document
+position, i.e. `getBoundingClientRect().top` of each resolved element, falling back to `anchorPath`
+when the element is not on screen and to `createTime` for unanchored comments. That is Google Docs'
+behaviour and it needs no backend ordering.
+
+**De-anchored comments render inline, not in the orphan bucket.** A comment that still has its
+`activity` but has lost its content-node anchor is not an orphan in phase 02's sense
+(`orphanDescription !== null`, meaning the activity itself is gone). Render it immediately **above**
+its activity's group, showing its `anchorText` snapshot as a quote, with the re-anchor action. Phase
+02 designed the grouping with this slot in mind; this is where it gets filled.
 
 ### Registering a surface — one call each
 

@@ -20,7 +20,7 @@ you can work through feedback in one pass instead of camp by camp.
 | Unread state / read markers                     | 05 (step 8)                    |
 | Notifications of any kind                       | 05                             |
 | Comments on camps you are not a collaborator of | never — `filterByUser` decides |
-| A per-camp version of this list                 | phase 02's camp comments page  |
+| A per-camp version of this list                 | phase 02's camp-scoped panel   |
 
 ## Backend changes
 

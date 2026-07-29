@@ -192,6 +192,12 @@ Data and states: fetches the collection for the given camp, filters to the activ
 skeletons, empty state, ordering, the `v-for` of cards, and the composer. The main testable unit.
 Props: `camp`, `activity` (nullable) — entities, passed down by the panel. No events.
 
+**Ordering here is just `createTime` ascending**, which the API already returns
+(`Comment` has `order: ['createTime' => 'ASC']`). This phase is activity-scoped, so every comment
+shares one activity and there is nothing to order across. Phase 02 introduces camp scope and with it
+programme ordering — do not reach for it now, and in particular do not sort by
+`scheduleEntry.number`, which is not a total order. See phase 02's Ordering section.
+
 **`frontend/src/components/comments/CommentCard.vue`** (~90 lines)
 
 Replaces `Comment.vue`. Avatar via `components/user/UserAvatar.vue`, display name,
@@ -400,6 +406,31 @@ the environment named by the deploy job
 Local development needs nothing: `VITE_FEATURE_COMMENTS` is unset and `environment.js:25` already
 defaults it to `true`.
 
+### Dev data seeds
+
+The toggle goes on for `dev` in this phase, so the dev deployment needs comments to look at —
+`data.sql` currently has **no `comment` rows at all**; this would be the first.
+
+The procedure is dump-based, not fixture-based (`api/migrations/dev-data/README.md`): wipe the local
+DB volume, write a handful of comments **through the frontend** across a couple of camps and
+activities, then run `./create-data-migration-dump.sh`. That script creates the next
+`Version<YYYYMMDDHHMM>.php`, guts the previous one, and re-dumps the whole of `data.sql`. Hand-edit
+the new migration's `getDescription()` and commit all three changes together.
+
+Seed enough to exercise the shapes the next phases need: several comments on one activity from
+different authors, one on a second activity, one camp-level comment (no activity), and one orphan
+(comment on an activity you then delete). Include at least one activity with schedule entries on two
+different days, which is the case phase 02's ordering depends on.
+
+**Use the rich text.** Comments should exercise bold, italic, strikethrough, a bullet list, a link
+(so autolinking shows), and the occasional emoji — otherwise the seeds silently stop being a test of
+the read-only editor and the whole reason for not using `v-html` goes unexercised on `dev`. Also seed
+one comment near the 1024-character limit, so long-content layout gets looked at.
+
+Two traps: the wipe in README step 2 is mandatory, or IDs drift and the diff becomes unreadable; and
+the e2e suite hard-codes dev-data IDs (`e2e/utils/constants.ts`, plus pinned ID lists in
+`e2e/tests/9-behavior-tests/httpCache/`), so re-run the behavior tests after regenerating.
+
 ## Files touched
 
 ```
@@ -427,6 +458,8 @@ e2e/tests/9-behavior-tests/comments.spec.ts                     new
 
 api/src/Entity/Comment.php                                      -1 (CAMP_IS_PUBLIC on item Get)
 api/tests/Api/Comments/ReadCommentTest.php                      modified
+api/migrations/dev-data/data.sql                                regenerated
+api/migrations/dev-data/Version<new>.php                        new (+ previous one gutted)
 
 .helm/ecamp3/templates/frontend_configmap.yaml                  +1
 .helm/ecamp3/values.yaml.gotmpl                                 +1
@@ -553,6 +586,9 @@ docker compose up -d
 - [ ] No hardcoded strings; keys added to `en.json` and `de.json`.
 - [ ] `CAMP_IS_PUBLIC` removed from the item-level `Get`, with `ReadCommentTest` updated.
 - [ ] `Comments.vue`, `CommentWrapper.vue` and `Comment.vue` are deleted.
+- [ ] Dev data seeds contain comments — including a camp-level one, an orphan, rich-text formatting,
+      a link, an emoji and one near-1024-character comment — regenerated via
+      `create-data-migration-dump.sh`, with the e2e behavior tests still green.
 - [ ] `FEATURE_COMMENTS` is emitted by the Helm configmap, wired exactly like `FEATURE_CHECKLIST`
       (`| default false` on both hops), and set to `true` on the **`dev`** GitHub Environment.
       `staging` and `prod` stay off by default.

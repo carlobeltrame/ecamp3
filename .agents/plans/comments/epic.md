@@ -45,7 +45,7 @@ The order comes from the issue and is fixed. "Where" says which phase file owns 
 | 1   | Usable create / read / delete UI                              | 01             | —                                    |
 | 2   | Enable feature toggle                                         | 01             | 1                                    |
 | 3   | Dashboard indicates activities with comments                  | 02             | 1                                    |
-| 4   | A place for orphan and camp-level comments                    | 02             | 1                                    |
+| 4   | A place for orphan and camp-level comments                    | 02 (the panel) | 1                                    |
 | 5   | Comment threads                                               | 03             | 1                                    |
 | 6   | Resolve / unresolve                                           | 03             | 5 (UI only; technically independent) |
 | 7   | Anchor to other entities / precise anchors, re-anchor orphans | 04             | 5                                    |
@@ -76,6 +76,32 @@ backfill is unambiguous. Decide this _before_ step 7, not during.
 filter). The filter widget is shared by the dashboard, the picasso and the print configs, but that
 sharing makes it _cheaper_, not more expensive — see phase 02 for the measured cost and the one real
 obstacle (`comments` is a hyperlink, not a scalar).
+
+**Step 4 (orphan and camp-level comments) — no separate view.** The phase 01 panel already derives
+its scope from the route, so it is activity-scoped on an activity page and **camp-scoped everywhere
+else**. That camp-scoped panel _is_ the place: grouped by activity in programme order, with buckets
+for camp-level comments and for orphans. One component instead of two, and camp-level creation and
+orphan handling come for free. Phases 3, 4 and 12 still land as **separate commits** — see phase 02.
+
+**One panel, two scopes.** Worth stating once because every later phase depends on it: the panel is
+unfiltered when opened from the dashboard or picasso (camp scope) and filtered to one activity when
+opened from an activity page. Phase 04 adds a third case inside activity scope — comments that keep
+their activity but lose their content-node anchor render inline, just above that activity's group,
+rather than in the orphan bucket.
+
+**Ordering: first appearance in the visible programme, never by `number`.** Comments group by
+activity; sections order by the activity's first still-visible schedule entry, comments within a
+section by `createTime`. `ScheduleEntry::getNumber()` looks like the key and is not — it is computed
+rather than a column, does not sort as a string, and does not encode a total order across categories
+(`1.1`, `1.a` and `1.i` can coexist on one day, and style `-` yields `''`).
+
+No comparator is needed: the schedule-entry list is already in programme order, so the position is
+just the index at which each activity first appears. That makes it naturally filter-correct — hiding
+an activity's first entry re-positions it by its next one, and hiding all of them drops it. Which in
+turn means **the panel must know the page's filter state and, on the picasso, its period**; it reads
+both from the route, the same way it reads camp and activity. Phase 02 adds
+`common/helpers/programOrder.js`, deliberately generic so the material overview can reuse it; phase
+04 orders within an activity by anchor position.
 
 ## Target datamodel
 
@@ -307,6 +333,17 @@ does read `children`, but emits `<childId>#parent`, not the plain `<childId>` ta
 a 200 for a content node that no longer exists, and grandchildren are not reached at all. **Open an
 issue.**
 
+**`activityCount` is derived data living inside the filter object.** It is written by three watchers
+in `frontend/src/components/print/config/DialogScheduleEntryFilter.vue:128,137,147`, defaulted in
+`repairFilterConfig.js:11,59`, explicitly skipped in `ScheduleEntryFilters.vue:313`
+(`key !== 'activityCount'`), implicitly skipped by `DialogScheduleEntryFilter.vue:109` `anyFilter`,
+not reset by `resetFilter`, and consumed once in
+`components/print/print-client/generatePdfMixin.js:41`. Phase 02 introduces a proper `context`
+argument on `filterMatchScheduleEntry` for exactly this class of value — **open an issue to migrate
+`activityCount` into it** and delete the two special cases. Not urgent: it is a number, so it survives
+the JSON round-trips that would corrupt a Set, which is why phase 02 deliberately does not touch it.
+Do it as its own change once `context` exists.
+
 **`frontend/src/test/renderWithVuetify.js` is still Vue 2.** It calls `Vue.use(Vuetify)`,
 `new Vuetify()` and uses the old `@vue/test-utils` `Wrapper` API, yet `views/camp/admin/__tests__/Admin.spec.js`
 and a few `E*` specs still import it. The current helper is `frontend/tests/setupVuetify.js`. Nothing
@@ -315,7 +352,7 @@ new tests to copy the wrong pattern. **Open an issue to migrate the remaining im
 it.** Not part of this epic.
 
 **The activity view could start using the new `activityFromRoute` helper**, instead of getting passed only
-the activityId. Check for reasons this was implemented this way before proceeding with an issue. 
+the activityId. Check for reasons this was implemented this way before proceeding with an issue.
 
 **Comment caching is future work.** `Comment` does not implement `CanGenerateTagsInterface`. That is
 fine — caching is added one endpoint at a time, and comments needing their own development pass is
