@@ -173,6 +173,11 @@ CSS flash for now. Do not navigate; the point is to read the feedback without le
 **Keep the badge deliberately dumb.** It means "this activity has N comments". Step 8 changes the
 semantics to "N unread", and anything cleverer built now gets rewritten then.
 
+One forward-looking rule, decided in phase 03 so it is not re-argued: once resolve exists, the badge
+counts **open threads only**, and disappears when every thread on an activity is resolved. Same for
+the `hasComments` filter. That is the point of resolving — an addressed change request stops
+demanding attention.
+
 ### Step 4 — camp-level and orphan comments
 
 Covered by the camp-scoped panel above. Concretely, in `CommentsList.vue`:
@@ -405,8 +410,7 @@ there means running the `print` checks too.
 
 ## Open questions
 
-- Should the badge count resolved threads once phase 03 lands? _Default: no_ — count open threads.
-  Decide in 03.
+None — see the decisions above.
 
 ## Done criteria
 

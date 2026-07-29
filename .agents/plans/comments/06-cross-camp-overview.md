@@ -62,7 +62,7 @@ the `getEnv().FEATURE_COMMENTS ? [...] : []` spread-conditional pattern (`router
 **Navigation** — an entry in the top-level navigation, gated the same way.
 
 Sorting: newest first is the useful default here, unlike the in-camp panel which reads
-chronologically. Once phase 03 lands, hide resolved threads behind the same "show resolved" toggle.
+chronologically. Once phase 03 lands, hide resolved threads behind the same "Open" / "All" toggle.
 
 Filtering worth having from the start, because the list is otherwise long: **by camp**, and **not
 authored by me** (the "what do I need to respond to" view). Both are client-side over the single
@@ -75,7 +75,7 @@ frontend/src/views/comments/CommentsOverview.vue                new
 frontend/src/views/comments/__tests__/CommentsOverview.spec.js  new
 frontend/src/router.js                                          modified
 frontend/src/components/navigation/...                          modified (nav entry)
-frontend/src/components/comments/CommentCard.vue                minor: read-only variant
+frontend/src/components/comments/CommentCard.vue                reused as-is (no change expected)
 frontend/src/locales/en.json, de.json                           +keys
 ```
 

@@ -411,7 +411,7 @@ Specific cases that must exist:
 9. Print the camp both ways. In the Nuxt print and in the client-side PDF, the commented sentence
    renders **in full** — this is the regression the passthrough rule prevents.
 10. Resolve an anchored thread. Its highlight disappears from the text but the thread is still
-    reachable under "show resolved".
+    reachable under the panel's "All" view.
 
 ## Open questions
 

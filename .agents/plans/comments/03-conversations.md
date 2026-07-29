@@ -5,8 +5,8 @@ See [epic.md](epic.md) for the datamodel and decisions. Requires [01-usable-ui.m
 ## Goal
 
 A comment becomes a conversation. Anyone in the camp can reply to a comment, and any collaborator
-can mark a thread resolved — which collapses it out of the way, so the panel stops growing forever.
-A resolved thread can be reopened.
+can mark a thread resolved — which takes it out of the default view, so the panel stops growing
+forever. Resolved threads stay fully readable under an "All" toggle and can be reopened.
 
 Resolve is not a nicety here. Because nobody may delete or edit anybody else's comment
 (see the epic's "Who this is for"), resolving is the **only** way an addressed J+S condition or
@@ -35,14 +35,8 @@ exposes only `read` and `create` serialization groups, and `UpdateCommentTest` a
 
 ```php
 #[AssertBelongsToSameCamp]
-#[Assert\Expression(
-    'this.parent === null or this.parent.parent === null',
-    message: 'Replies cannot be nested. Reply to the root comment of the thread.',
-)]
-#[Assert\Expression(
-    'this.parent === null or this.parent.activity === this.activity',
-    message: 'A reply must belong to the same activity as its parent.',
-)]
+#[AssertBelongsToSameActivity]
+#[Assert\Expression('value === null or value.parent === null', 'Cannot reply to a reply.')]
 #[Groups(['read', 'create'])]
 #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'children')]
 #[ORM\JoinColumn(nullable: true)]
@@ -55,9 +49,41 @@ public ?Comment $parent = null;
 public Collection $children;
 ```
 
-Initialise `$children` in a constructor. The three expressions are worth lifting verbatim from the
-reference fork's `Comment.php`; a fourth ("replies inherit the anchor and carry none of their own")
-belongs to phase 04 and is added there.
+Initialise `$children` in a constructor. A fourth rule ("replies inherit the anchor and carry none of
+their own") belongs to phase 04 and is added there.
+
+**Write one custom validator, keep one rule inline.** The reference fork expresses all three as
+`Assert\Expression`; that is not the house pattern here, and one of the three genuinely needs a
+validator.
+
+- **`AssertBelongsToSameActivity` — new custom validator.** Nothing existing fits:
+  `AssertBelongsToSameCamp` resolves the camp through `GetCampFromContentNodeTrait` and is
+  camp-only, and the codebase already declined to generalise it once — `ChecklistItem/AssertBelongsToSameChecklist`
+  is a 39-line copy of the same shape hardcoded to `->checklist`. Copy that file into
+  `api/src/Validator/Comment/AssertBelongsToSameActivity{,Validator}.php` and swap `checklist` for
+  `activity`. It needs to be a validator rather than an expression because `Comment::$activity` is
+  **nullable**: the expression would need null guards on both sides plus `getId()` comparison
+  (every validator here compares `getId()`, never `==` on entities, because of Doctrine proxies),
+  which produces an untestable string longer than the validator body — and the null-on-both-sides
+  case could not be unit-tested at all. Decide that case explicitly; `AssertBelongsToSameCampValidator`
+  treats null/null as a violation, and matching it is probably right.
+- **No-nesting — inline `Assert\Expression`, one line.** This is a depth-1 tree, so none of
+  `AssertNoLoop` / `getNestingLevel()` / `getSubtreeDepth()` applies: a cycle is impossible at depth
+  1, and self-parenting is already rejected because such a comment has `value.parent !== null`. A
+  constraint class here would be a 40-line wrapper around a boolean. Inline Expression is rare but
+  accepted — there are exactly three in `api/src/`, including `ChecklistItem`'s depth limit.
+- **`AssertBelongsToSameCamp` on `$parent` — free.** `Comment` already implements
+  `BelongsToCampInterface`, so it costs nothing and gives a clean cross-camp error even when
+  `activity` is null on both comments.
+
+House pattern for the new validator: two files side by side in a per-entity subdirectory, autowired
+by the `App\` glob (no service registration), `UnexpectedTypeException` guard, early return on null,
+violation attached to the property by default (`->atPath()` is used nowhere). Do **not** add the
+message to `api/translations/validators.en.yml` — 12 of the 19 existing validators ship their English
+default untranslated.
+
+`ChecklistItem::$parent` is the precedent for stacking constraints on one self-referencing property:
+`#[AssertBelongsToSameChecklist] #[AssertNoLoop] #[Assert\Expression(depth limit)]`.
 
 **Deletion, per epic decision 4:** the FK is **not** `onDelete: cascade`. The fork's cascade lets an
 author delete their root comment and silently destroy everyone else's replies, which the
@@ -70,8 +96,11 @@ conditions and change requests must not be removable by the camp team. `Delete` 
 `object.author === user`, unchanged from today. Resolving is the mechanism for getting an addressed
 comment out of the way — which is exactly why steps 5 and 6 ship together.
 
-Also add `parent` to the `SearchFilter` properties so the frontend can fetch a thread directly if it
-ever needs to.
+**Do not add `parent` to the `SearchFilter`.** Nothing needs it: the panel already fetches every
+comment in the camp and assembles threads client-side. If a later phase genuinely needs
+`?parent=<iri>`, add it together with a DB index on `parentId` and filter tests — an unindexed
+`SearchFilter` on a self-referencing FK is a slow query waiting to happen. (The FK column gets an
+index from the migration either way; the point is not to expose a query path nobody uses.)
 
 ### Resolve (step 6)
 
@@ -114,9 +143,21 @@ sorted by `createTime`), render one `CommentThread` per root, and sort open thre
 ones.
 
 **`frontend/src/components/comments/CommentThread.vue`** (new) — the root card, its replies, a
-compact reply composer, and the resolve/reopen control. Collapsed when resolved: show the root's
-first line, the resolver's name and a "reopen" affordance. A "show resolved" toggle in the panel
-header controls whether resolved threads are listed at all.
+compact reply composer, and the resolve/reopen control.
+
+**Resolved threads are hidden, not collapsed.** An **"Open" / "All" toggle** in the panel header
+switches between them:
+
+- **Open** (default) — resolved threads are simply absent from the list.
+- **All** — resolved threads render **in full**, exactly like open ones, with an indicator: who
+  resolved them and when, plus the reopen control.
+
+Do **not** collapse them to a summary line, and do not grey them in place in the Open view. The
+reason you switch to "All" is to read a resolved thread and decide whether it needs reopening, and
+you cannot make that call from a truncated first line. Greying in place would also keep costing
+vertical space, which defeats the point of resolving at all.
+
+The toggle is per-panel UI state, so it belongs in `commentsState`; it does not need URL persistence.
 
 **`CommentComposer.vue`** — gains an optional `parent` prop; when set, the POST body carries
 `parent: <iri>` and omits nothing else. `camp` and `activity` are still required and still arrive as
@@ -135,7 +176,9 @@ api/fixtures/comments.yml                                        +reply and reso
 api/tests/Api/Comments/UpdateCommentTest.php                     rewritten (currently asserts 405)
 api/tests/Api/Comments/CreateCommentTest.php                     +reply cases
 api/tests/Api/Comments/DeleteCommentTest.php                     +root-with-replies, +manager-denied
-api/tests/Api/Comments/ListCommentsTest.php                      +parent filter
+api/src/Validator/Comment/AssertBelongsToSameActivity.php        new
+api/src/Validator/Comment/AssertBelongsToSameActivityValidator.php  new
+api/tests/Validator/Comment/AssertBelongsToSameActivityValidatorTest.php  new
 api/tests/Api/SnapshotTests/__snapshots__/                       all three regenerated
 
 frontend/src/components/comments/CommentThread.vue               new
@@ -156,10 +199,17 @@ docker compose exec api composer phpstan
 docker compose exec frontend npm run test:unit
 ```
 
+`AssertBelongsToSameActivityValidatorTest` follows the house `ConstraintValidatorTestCase` shape
+(see `api/tests/Validator/AssertBelongsToSameCampValidatorTest.php`): the six canonical cases —
+`testExpectsMatchingAnnotation`, value/object type guards, `testNullIsValid`, `testValid`,
+`testInvalid` — plus, importantly, **the null-on-both-sides case**, which is the one an inline
+expression could not have pinned.
+
 API cases to add:
 
-- reply creation succeeds; nesting a reply under a reply → 422 with the nesting message;
-- a reply whose `activity` differs from its parent's → 422;
+- reply creation succeeds; nesting a reply under a reply → 422 `parent: Cannot reply to a reply.`;
+- a reply whose `activity` differs from its parent's → 422 on `propertyPath: parent`;
+- a reply whose parent is in a different camp → 422 (the free `AssertBelongsToSameCamp`);
 - PATCH `{"resolved": true}` as a collaborator → 200, `resolvedAt` and `resolvedBy` set;
 - PATCH `{"resolved": false}` → both cleared;
 - PATCH `{"textHtml": "..."}` → 400 "Extra attributes are not allowed" (proves no-edit holds);
@@ -176,25 +226,25 @@ contract.
 
 1. As member A, comment on an activity. As member B, reply. Both see the thread with the reply
    indented under the root.
-2. As B, resolve the thread. It collapses for both, showing B as the resolver. The panel's open-
-   thread list shrinks.
-3. Reopen it. It returns to the open list with the reply intact.
+2. As B, resolve the thread. It disappears from the default "Open" view for both. Switch to "All":
+   it is there **in full** — root and every reply, same as an open thread — with an indicator naming
+   B and the time, plus a reopen control. Nothing is truncated to a summary line.
+3. Reopen it. It returns to the "Open" list with the reply intact.
 4. As A, try to delete the root. The control is disabled with an explanation; deleting the reply
    first then the root works.
 5. As the camp manager, try to delete B's reply. There is no delete control, and a hand-crafted
    `DELETE` returns 403.
 6. As a camp guest, confirm you can reply and resolve (a guest is a `CAMP_COLLABORATOR`).
 7. `curl -X PATCH` a comment with `{"textHtml": "hacked"}` and confirm 400.
-8. As B, resolve A's thread, then confirm A can still read it under "show resolved" and reopen it.
-   Nothing was destroyed.
+8. As B, resolve a long thread of A's. Switch to "All" and read the whole exchange without expanding
+   anything — that is the case the no-collapse rule exists for — then reopen it from there. Nothing
+   was destroyed.
+9. On the dashboard, resolve every thread on one activity. Its count badge disappears; resolve only
+   some and the count drops accordingly.
 
 ## Open questions
 
-- Should guests be able to resolve? _Default: yes_ — `CAMP_COLLABORATOR` includes guests, and
-  splitting the rule means a second security expression.
-- Should resolved threads be hidden by default or shown greyed? _Default: hidden behind a "show
-  resolved" toggle_, which is the behaviour that actually keeps the panel usable.
-- Does the dashboard badge (phase 02) count resolved threads? _Default: no_ — count open threads.
+None — see the decisions above.
 
 ## Done criteria
 
@@ -204,5 +254,11 @@ contract.
 - [ ] Deleting a root with replies is refused by the API and prevented in the UI.
 - [ ] No moderation delete was added — `Delete` is still `object.author === user`, and the existing
       "manager cannot delete someone else's comment" assertion still passes.
+- [ ] "Reply must share its parent's activity" is a custom validator in
+      `api/src/Validator/Comment/`, unit-tested in the house `ConstraintValidatorTestCase` style
+      including the null-on-both-sides case. No-nesting stayed a one-line `Assert\Expression`.
+- [ ] No `parent` `SearchFilter` was added.
+- [ ] Resolved threads are hidden in the "Open" view and rendered **in full** under "All", with a
+      resolver indicator and a reopen control — never collapsed to a summary and never greyed in
+      place. The dashboard badge counts open threads only.
 - [ ] All three snapshot files regenerated; `composer test tests/Api/Comments/` green.
-- [ ] Resolved threads collapse and do not clutter the panel.
