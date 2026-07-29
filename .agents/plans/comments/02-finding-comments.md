@@ -18,6 +18,7 @@ is why they share a phase: splitting them means writing that fetch three times.
 | Not in this phase                                               | Phase that does it                        |
 | --------------------------------------------------------------- | ----------------------------------------- |
 | Unread state — the badge means "has comments", not "has unread" | 05 (step 8 supersedes this badge)         |
+| Any comments UI for external (public-camp) users                | never — gated on `isOutsider` in 01       |
 | Replies, resolve                                                | 03                                        |
 | Re-anchoring an orphaned comment to a new activity              | 04                                        |
 | Cross-camp overview                                             | 06                                        |
@@ -76,6 +77,11 @@ A camp-level view modelled on `frontend/src/views/camp/checklistOverview/`:
 
 The camp-level composer creates a comment with `activity` omitted — the backend already allows this
 (`activity` is nullable, only `camp` is required).
+
+Two notes about the phase 01 panel on this route. It **is** a camp route, so `campFromRoute`
+resolves and the drawer would work here — but do not add a `<CommentsToggleButton />` to this page,
+or the same comments appear twice. And since the page and the panel render the same data, reuse
+`CommentsList.vue` (with `activity` undefined) rather than writing a second list.
 
 This is not really a feature request. Activity deletion has produced orphan rows since
 `ActivityRemoveProcessor` shipped, and there is no way to read or delete them. That is a
@@ -227,4 +233,6 @@ docker compose exec print npm run test        # common/helpers is shared with /p
 - [ ] A camp-level comment can be created, read and deleted with no activity reference.
 - [ ] Orphaned comments produced by activity deletion are visible and deletable by their author.
 - [ ] No new backend endpoint, no migration, no snapshot regeneration.
-- [ ] `FEATURE_COMMENTS` enabled in production.
+- [ ] `FEATURE_COMMENTS = true` set on the `staging` and then `prod` GitHub Environments (phase 01
+      set it for `dev` only). `staging` carries production data, so treat enabling it there as the
+      real go-live rehearsal and leave a gap before `prod`.

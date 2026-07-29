@@ -50,7 +50,11 @@ and then by activity.
 **`frontend/src/views/comments/CommentsOverview.vue`** (new) — fetch `api.get().comments()`, group
 by `comment.camp()`, then by `comment.activity()` (with a bucket for camp-level and one for
 orphans), and render each entry as a link into the activity, where phase 01's panel takes over.
-Reuse `CommentCard.vue` in a read-only mode rather than building a second card.
+Reuse `CommentCard.vue` as-is rather than building a second card — it already takes a `comment` prop
+and gates its own delete control on authorship, which is the right behaviour here too.
+
+Note this view is **not** a camp route, so `campFromRoute` yields nothing and the phase 01 drawer
+never appears over it. That is intended: this is a standalone list, not the panel.
 
 **`frontend/src/router.js`** — a top-level route beside the existing non-camp routes, added inside
 the `getEnv().FEATURE_COMMENTS ? [...] : []` spread-conditional pattern (`router.js:24-36`).

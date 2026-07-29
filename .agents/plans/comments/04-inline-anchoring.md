@@ -177,9 +177,18 @@ node. **Large snapshot churn** — it touches every content-node snapshot. Skip 
 
 ### Anchor registry
 
-Extend `commentsState.js` with a registry (~40 lines), keyed to mirror `apiPropsMixin`:
+Extend `frontend/src/components/comments/commentsState.js` (~+50 lines), keyed to mirror
+`apiPropsMixin`. All comments UI state stays in that one module — phase 01 left it holding only
+`{ open: false }`, since camp and activity come from `router.js`'s route helpers, and this is where
+it grows.
 
 ```js
+export const commentsState = reactive({
+  open: false, // phase 01
+  commentsLoaded: false, // editors must not reconcile highlights before this
+  activeCommentUri: null, // the focused thread
+})
+
 export const anchorKey = (targetUri, path = null) => `${targetUri}#${path ?? ''}`
 
 // host: { el?, resolve?: (anchorId) => Element|null,
@@ -189,6 +198,9 @@ export function resolveAnchor(comment) // → Element | null
 export function focusAnchor(anchorId) //   panel → content
 export function focusComment(commentUri, anchorId) // content → panel
 ```
+
+Keep the registry of hosts itself in a plain module-scope `Map` outside the `reactive()` — it holds
+element references and callbacks, which have no business being reactive. Only the flags above are.
 
 `anchorId` is deliberately **not** part of the key: one editor owns every mark id for its
 `(uri, path)`. The registry resolves the surface; the surface resolves the id.
@@ -302,7 +314,8 @@ matching. The panel must distinguish "not on this page" (an anchor in a differen
 
 Editors must not reconcile or strip highlight spans before the comments collection has loaded, or
 they wipe valid anchors while the collection is momentarily empty. The fork hit this; keep its
-`commentsLoaded` guard as an explicit flag in `commentsState`.
+`commentsLoaded` guard as an explicit flag on `commentsState` (above), set by `CommentsList` once its
+collection resolves.
 
 ## Files touched
 
@@ -318,7 +331,9 @@ api/tests/Api/Comments/*.php                                    +anchor cases
 api/tests/Api/ContentNodes/**                                   +data-comment-id survives purifier
 api/tests/Api/SnapshotTests/__snapshots__/                      all three regenerated
 
-frontend/src/components/comments/commentsState.js               +registry
+frontend/src/components/comments/commentsState.js               +registry, +flags
+frontend/src/components/comments/__tests__/commentsState.spec.js   new
+frontend/src/components/comments/CommentsList.vue               modified (sets commentsLoaded)
 frontend/src/mixins/commentAnchorMixin.js                       new
 frontend/src/components/form/tiptap/CommentMark.js              new (from the fork)
 frontend/src/components/form/tiptap/TiptapEditor.vue            modified
@@ -358,7 +373,7 @@ Specific cases that must exist:
 - deleting a content node sets `contentNode` to NULL and leaves the comment readable;
 - **deleting a parent `ColumnLayout`** (DB cascade path, no processor) does the same — this is the
   case a remove-processor would have missed, and it is a tested, intended behaviour of the API (see
-  the epic's "Known backend gaps");
+  the epic's "Known gaps");
 - `CommentAnchorsTest` — nested spans, overlapping spans and multi-class `class` attributes survive
   stripping intact;
 - creating a camp from a prototype whose content contains anchor spans produces content with no

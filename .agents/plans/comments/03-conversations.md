@@ -119,8 +119,8 @@ first line, the resolver's name and a "reopen" affordance. A "show resolved" tog
 header controls whether resolved threads are listed at all.
 
 **`CommentComposer.vue`** — gains an optional `parent` prop; when set, the POST body carries
-`parent: <iri>` and omits nothing else (`camp` and `activity` are still required and still come from
-the scope).
+`parent: <iri>` and omits nothing else. `camp` and `activity` are still required and still arrive as
+props from the panel, which derives them from the route via `campFromRoute` / `activityFromRoute`.
 
 **`CommentCard.vue`** — the delete button on a root with replies must be disabled or absent, with a
 tooltip, matching the backend's refusal. Do not let the user discover the rule via a 409.

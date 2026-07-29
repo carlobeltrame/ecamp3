@@ -7,7 +7,11 @@ a right-hand panel of comment cards, later anchored to the thing they talk about
 sheet on mobile. The backend already has a minimal `Comment` entity; the frontend has a
 rudimentary, broken implementation that this epic replaces.
 
-The whole feature stays behind the existing `VITE_FEATURE_COMMENTS` toggle until phase 02 ships.
+The whole feature stays behind the existing `VITE_FEATURE_COMMENTS` toggle, wired exactly like
+`FEATURE_CHECKLIST`: on by default in local development, opt-in per deployed environment. Phase 01
+turns it on for **`dev`**; `staging` (an exact copy of prod, with production data) and `prod` stay
+off until phase 02 ships, because until comments are discoverable from the dashboard the first
+production week generates "nobody replied to me" instead of usage.
 
 ## Who this is for
 
@@ -129,7 +133,7 @@ strict rather than permissive: `contentNode !== null` implies `activity !== null
 `Assert\Expression` in phase 04 rather than leaving it to convention.
 
 **`contentNode` and `scheduleEntry` use `ON DELETE SET NULL`, with no remove-processor.** Content
-nodes really are deleted by DB cascade — see "Known backend gaps" below — so a PHP processor
+nodes really are deleted by DB cascade — see "Known gaps" below — so a PHP processor
 mirroring `ActivityRemoveProcessor` would silently miss the common case. Instead, `anchorText` (the
 snapshot stored so a thread can be re-anchored) doubles as the "this used to be attached to «…»"
 label. `orphanDescription` stays activity-only, as it is today. Schedule entries always belong to an
@@ -149,20 +153,38 @@ App.vue
   <v-main><router-view /></v-main>
 ```
 
-Pages opt in with two calls:
+**The camp and activity come from the route, not pushed by the pages.** A page-pushed scope
+(`setCommentScope` on mount, `clearCommentScope` on unmount) interleaves badly on a route change: the
+incoming page sets the scope, then the outgoing page's unmount hook clears it, leaving the panel
+empty on a page that should have comments.
+
+Instead the panel uses the route helpers `router.js` already exports, which return **entities**:
 
 ```js
-setCommentScope({ camp, activity }) // on mount / route change
-clearCommentScope() // on unmount
+import { campFromRoute, activityFromRoute } from '@/router.js'
 ```
 
-Why this and not the current `CommentWrapper.vue`, which wraps the page in a flex row:
+`campFromRoute` exists (`router.js:757-762`, alongside `periodFromRoute`, `checklistFromRoute`,
+`materialListFromRoute`); `activityFromRoute` is added in the same shape in phase 01. The panel
+cannot receive them as route-injected props — it lives in `App.vue`, not a named `router-view` — but
+importing the helper is equivalent and is what every `props:` callback in `router.js` already does.
+
+So there is exactly one writer (the route), pages contribute no code, `campRoleMixin` and the
+collection query get entities directly, and any camp route can host the panel with no allow-list to
+maintain. `commentsState` is then just `{ open: false }`.
+
+Each page that wants to expose the panel drops a single `<CommentsToggleButton />` into its own
+toolbar.
+
+Why a singleton panel rather than the current `CommentWrapper.vue`, which wraps the page in a flex
+row:
 
 - `v-navigation-drawer app location="right"` makes Vuetify pad `v-main` itself. The content column
   narrows with no flex wrapper and no JS measuring, so the reference fork's measure-and-grow
   feedback loop (it grew the page every frame) is structurally impossible.
 - The picasso owns its own full-height layout and cannot be wrapped. Camp-level, dashboard and
-  cross-camp views need the same panel. With a singleton each costs about six lines.
+  cross-camp views need the same panel. With a singleton each costs one route-map entry and one
+  toggle button.
 - Today's `Comments.vue` is an _ancestor_ of the activity, so its `v-if="!comments._meta.loading"`
   blocks the whole page from rendering until the comments request resolves. A sibling panel cannot
   do that.
@@ -171,8 +193,10 @@ Shared state lives in a **module singleton** (`commentsState.js`), not provide/i
 Provide/inject cannot work — the panel is outside every page's provide tree. Vuex is the wrong tool
 for DOM-adjacent UI state, and Pinia is not installed.
 
-From phase 04 the same module carries the anchor registry, keyed by `anchorKey(uri, path)` to mirror
-`apiPropsMixin`. Registering a new anchorable surface is one call; see
+**All comments UI state lives in that one module.** In phase 01 it is just `{ open: false }`, because
+camp and activity come from the route helpers. Phase 04 grows it with the anchor registry, keyed by
+`anchorKey(uri, path)` to mirror `apiPropsMixin`, plus the `commentsLoaded` and `activeCommentUri`
+flags. Registering a new anchorable surface is one call; see
 [04-inline-anchoring.md](04-inline-anchoring.md).
 
 ## Invariants to preserve
@@ -186,6 +210,20 @@ From phase 04 the same module carries the anchor registry, keyed by `anchorKey(u
 - **Guests can comment.** `CAMP_COLLABORATOR` includes the `guest` role, which satisfies the MVP
   requirement "even as a guest".
 - **Nobody edits or deletes somebody else's comment.** See "Who this is for" above.
+- **No `v-html`, ever.** There is none in the frontend today and comments do not introduce it, even
+  though the API sanitises `textHtml` with HTMLPurifier on write. Rich text already carries
+  non-standard-HTML decorations (autolinking) and will carry more — mentions, comment anchors — all
+  of which need an editor to render. Read-only text is rendered by a non-editable `TiptapEditor`, the
+  same way the story overview page already does it (`components/story/StoryDay.vue:42-54`).
+- **Exactly one role gate in the client: `isOutsider`.** External users — those who reach a camp only
+  through its public flag — get no comments UI at all. Between collaborators, role makes no
+  difference: guests may comment and, from phase 03, resolve, and nobody may touch another person's
+  comment. Those rules are enforced by the API; do not reimplement them in Vue. Note the gate is
+  `isOutsider`, **not** `ScheduleEntry.vue`'s `disabled` — that one is `!isContributor` and would shut
+  guests out. `campRoleMixin.isOutsider` is currently broken; phase 01 fixes it.
+- **The panel never blocks the page.** No scrim, no focus trap, no blocked scroll — users must be
+  able to read and scroll the commented content while the panel is open. That rules out `temporary`
+  drawers and default-configured bottom sheets.
 
 ## Translations
 
@@ -210,7 +248,7 @@ the dashboard.
 **Follow-up:** the activity subresource `GET /activities/{activityId}/comments` was added because
 subresources are more easily cacheable. Once nothing uses it, **remove it** rather than leaving dead
 API surface — but ship the feature first. Track it as a cleanup ticket after phase 02. If comment
-caching later turns out to matter (see "Known backend gaps"), reintroducing a cacheable
+caching later turns out to matter (see "Known gaps"), reintroducing a cacheable
 camp-scoped subresource is the natural move, and it would be a different endpoint anyway.
 
 **2. Remove `CAMP_IS_PUBLIC` from the item-level `Get`. — decided: remove, for now.**
@@ -239,7 +277,7 @@ already designed (above), the panel is already mounted somewhere that can host a
 `anchorPath` is already the addressing scheme. Phase 04 stays gated on 01–03 being in production
 use, but it is not speculative.
 
-## Known backend gaps
+## Known gaps to open issues for
 
 Found while planning. Neither blocks this epic; both deserve their own issue.
 
@@ -268,6 +306,16 @@ does read `children`, but emits `<childId>#parent`, not the plain `<childId>` ta
 `TagCollector::addCacheTagForResource()` puts on the child's own item response. So Varnish can serve
 a 200 for a content node that no longer exists, and grandchildren are not reached at all. **Open an
 issue.**
+
+**`frontend/src/test/renderWithVuetify.js` is still Vue 2.** It calls `Vue.use(Vuetify)`,
+`new Vuetify()` and uses the old `@vue/test-utils` `Wrapper` API, yet `views/camp/admin/__tests__/Admin.spec.js`
+and a few `E*` specs still import it. The current helper is `frontend/tests/setupVuetify.js`. Nothing
+in this epic uses the stale one — every new spec uses `setupVuetify.js` — but the leftover invites
+new tests to copy the wrong pattern. **Open an issue to migrate the remaining importers and delete
+it.** Not part of this epic.
+
+**The activity view could start using the new `activityFromRoute` helper**, instead of getting passed only
+the activityId. Check for reasons this was implemented this way before proceeding with an issue. 
 
 **Comment caching is future work.** `Comment` does not implement `CanGenerateTagsInterface`. That is
 fine — caching is added one endpoint at a time, and comments needing their own development pass is
