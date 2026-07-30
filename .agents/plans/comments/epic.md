@@ -370,7 +370,22 @@ this must be built** — it is content-node-only, does not generalise to schedul
 or camp level, its print path is unhandled, and its delete semantics (cascade to replies, manager
 moderation) contradict settled decision 4. Specific pieces worth lifting are named in the phase
 files (`CommentUpdateProcessor` minus its `editedAt` listener, `CommentAnchors::stripFromData`,
-`CommentMark.js`, `randomUuid.js`, and the threading `Assert\Expression`s).
+`CommentMark.js`, `randomUuid.js`, the `findSnippetRanges` recovery, and the threading
+`Assert\Expression`s as the starting point for our validators).
+
+Because we copy files from it, the places where we deliberately differ are worth listing in one place —
+each of them is easy to reintroduce by accident:
+
+| the fork                                                   | us                                                               |
+| ---------------------------------------------------------- | ---------------------------------------------------------------- |
+| `Comment::$contentNode` join column `onDelete: 'cascade'`  | `set null` — the thread survives as an orphan (phase 04)         |
+| `Comment::$parent` join column `onDelete: 'cascade'`       | deleting a root with replies is refused (decision 4)             |
+| `Delete` also allows `CAMP_MANAGER`                        | author only — traceability (phase 03)                            |
+| `PATCH` can edit `textHtml`, tracked by `editedAt`         | no editing, ever (decision 3)                                    |
+| item `Get` allows `CAMP_IS_PUBLIC`                         | removed (decision 2, phase 01)                                   |
+| `(contentNode === null) === (anchorId === null)`           | a content node alone is a valid whole-card anchor (phase 04)     |
+| anchors are content-node-only, tiptap-only                 | typed FK + generic `anchorPath` (see the datamodel above)        |
+| stores `class="comment-mark"`, sweeps unmatched marks away | no stored class, decoration-based highlight, no sweep (phase 04) |
 
 Tiptap's own [Comments extension](https://tiptap.dev/docs/comments/getting-started/overview) is
 **not an option** — see the evaluation in [04-inline-anchoring.md](04-inline-anchoring.md).

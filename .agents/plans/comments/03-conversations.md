@@ -50,7 +50,11 @@ public Collection $children;
 ```
 
 Initialise `$children` in a constructor. A fourth rule ("replies inherit the anchor and carry none of
-their own") belongs to phase 04 and is added there.
+their own") belongs to phase 04, which adds it as part of its `AssertValidAnchor` validator.
+
+Phase 04 also **extends `AssertBelongsToSameActivity`** to accept a `ContentNode` value, so write it
+with that in mind: switch on the value type rather than assuming `Comment`, the way
+`AssertBelongsToSameCampValidator` already does for its several interfaces.
 
 **Write one custom validator, keep one rule inline.** The reference fork expresses all three as
 `Assert\Expression`; that is not the house pattern here, and one of the three genuinely needs a
