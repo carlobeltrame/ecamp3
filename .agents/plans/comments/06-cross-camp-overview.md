@@ -56,6 +56,17 @@ and gates its own delete control on authorship, which is the right behaviour her
 Note this view is **not** a camp route, so `campFromRoute` yields nothing and the phase 01 drawer
 never appears over it. That is intended: this is a standalone list, not the panel.
 
+**It is therefore compatible with — and unaffected by — phase 01's camp-change reset.** Navigating here
+makes `camp` undefined, which closes the panel and clears `commentsState`; nothing on this view reads
+that module. This view keeps its own local state (grouping, filters, the "Open"/"All" choice), because
+it is the one place that shows several camps at once and a singleton scoped to "the current camp" cannot
+describe it.
+
+Worth being precise about "several camps at once", since it is the one assumption the singleton rests
+on: people genuinely do work across two camps — copying activities out of last year's camp is a normal
+thing to do — but eCamp has no way to show two camps in one tab, and separate tabs get separate module
+instances. This view is the first thing that spans camps, and it does so without the panel.
+
 **`frontend/src/router.js`** — a top-level route beside the existing non-camp routes, added inside
 the `getEnv().FEATURE_COMMENTS ? [...] : []` spread-conditional pattern (`router.js:24-36`).
 

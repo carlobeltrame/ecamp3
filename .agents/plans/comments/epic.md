@@ -110,11 +110,17 @@ Anchors are **typed nullable foreign keys plus one generic `anchorPath`**.
 The insight that keeps this small: the frontend already addresses every field inside every content
 node as `uri` + `path` (a lodash path — see `frontend/src/mixins/apiPropsMixin.js` and
 `ApiWrapper.vue`). A Notes body is `data.html`; a storyboard cell is
-`data.sections[<uuid>].column2Html`; a selected checklist is `data.checklistItems[<uuid>]`. Those are
-**not** three anchor types — they are one `contentNode` FK with three different `anchorPath` values.
-Note that only the first is rich text: `anchorPath` addresses a **field of the payload**, and `anchorId`
-is the extra level that exists only when that field happens to hold rich text. The only genuinely new
-_entity_ on the entire roadmap is `ScheduleEntry`.
+`data.sections[<uuid>].column2Html`. Those are **not** two anchor types — they are one `contentNode` FK
+with two different `anchorPath` values. `anchorPath` addresses a **field of the payload**, and `anchorId`
+is the further level that exists only when that field happens to hold rich text.
+
+The other half of the model is the typed FKs, for anchor targets that are **entities rather than fields**:
+`ScheduleEntry`, `ChecklistItem`, `MaterialItem`. **None of them is planned in any phase of this epic** —
+they are the shapes the next requests will take, written down so phase 04 does not accidentally make them
+expensive. Phase 04 ships `contentNode` and nothing else. Those entity targets have their
+own per-camp URIs and no stable identity inside a content node's payload, so `anchorPath` cannot address
+them — see phase 04. Each costs one nullable column, one index and one validator condition; none costs a
+migration of existing rows.
 
 ```
 comment
@@ -129,8 +135,10 @@ comment
   contentNode    ?ContentNode     ON DELETE SET NULL              phase 04
   anchorPath     ?string(128)     lodash path into the target     phase 04
   anchorId       ?string(36)      tiptap mark id                  phase 04
-  anchorText     ?text            snapshot, max 255               phase 04
-  scheduleEntry  ?ScheduleEntry   ON DELETE SET NULL              when picasso ships
+  anchorText     ?text            snapshot, max 255, write-once   phase 04
+  scheduleEntry  ?ScheduleEntry   ON DELETE SET NULL              in the future
+  checklistItem  ?ChecklistItem   ON DELETE SET NULL              in the future
+  materialItem   ?MaterialItem    ON DELETE SET NULL              in the future
 ```
 
 The granularity ladder falls out with no discriminator column:
@@ -138,16 +146,17 @@ The granularity ladder falls out with no discriminator column:
 | meaning                       | activity | contentNode              | anchorPath                          | anchorId |
 | ----------------------------- | -------- | ------------------------ | ----------------------------------- | -------- |
 | whole camp                    | null     | null                     | null                                | null     |
+| orphaned                      | null     | null                     | kept                                | —        |
 | whole activity (today)        | set      | null                     | null                                | null     |
 | whole content-node card       | set      | set                      | null                                | null     |
 | one storyboard section editor | set      | set                      | `data.sections[<uuid>].column2Html` | null     |
 | text range                    | set      | set                      | `data.html`                         | `<uuid>` |
-| one selected checklist item   | set      | set                      | `data.checklistItems[<uuid>]`       | null     |
 | schedule entry                | set      | null (+ `scheduleEntry`) | null                                | null     |
-| orphaned                      | null     | null                     | kept                                | —        |
+| one selected checklist item   | set      | null (+ `checklistItem`) | null                                | null     |
+| one material item             | set      | null (+ `materialItem`)  | null                                | null     |
 
-The last three rows are expressible but not built in phase 04 — a checklist item selection or a material item
-is the shape people will ask for next, and the model already says how it would be stored.
+The last three rows are expressible but not built in phase 04. They are the shapes people will ask for
+next, and the model already says how each would be stored — as a foreign key, never as an `anchorPath`.
 
 Orphaned is unambiguous with existing columns: `orphanDescription !== null`. No `anchorLevel`
 column.

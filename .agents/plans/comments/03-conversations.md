@@ -162,11 +162,29 @@ public ?User $resolvedBy = null;
 
 /**
  * Write-only flag for resolving (true) or reopening (false) a thread.
+ * Only a thread's root comment can be resolved, not an individual reply.
  */
+#[Assert\Expression(
+    'this.resolved === null or this.parent === null',
+    message: 'Only the root comment of a thread can be resolved.',
+)]
 #[ApiProperty(readable: false, example: true)]
 #[Groups(['update'])]
 public ?bool $resolved = null;
 ```
+
+**Resolving applies to a thread, so it is refused on a reply.** Say it three times, because each one
+catches a different mistake:
+
+- in the docblock, so it reaches the OpenAPI spec and a client author reads it before writing the call;
+- as the `Assert\Expression` above — a pure scalar-and-null check, the same shape as the no-nesting
+  rule, and it runs before `CommentUpdateProcessor` so the processor never sees the case;
+- in `UpdateCommentTest`: `PATCH {"resolved": true}` on a reply → 422, and the reply's `resolvedAt`
+  stays null.
+
+Without it, `resolvedAt` could be stamped on a reply, where nothing reads it. The panel would ignore it,
+so the bug would be invisible until someone later wrote a query over resolved comments and got the wrong
+count.
 
 `api/src/State/CommentUpdateProcessor.php` translates it: `resolved === true` stamps `resolvedAt`
 and `resolvedBy` from the current user, `resolved === false` clears both. Take the fork's
@@ -177,9 +195,10 @@ That also means the fork's
 is unnecessary here.
 
 Resolving is a **collaborator** action, not an author-only one — mirroring how anyone with edit
-access to a Google Doc can resolve a thread. Phase 04 adds the counterpart rule: changing what a
-comment points at is author-only, enforced by a `securityPostDenormalize`. The split is "anyone can act
-on a thread's status, only its author can change what it says or points at".
+access to a Google Doc can resolve a thread. Phase 04 keeps that stance for re-anchoring, and adds the
+one `securityPostDenormalize` this entity does need: it opens `activity` for writing so an orphaned
+comment can be given a replacement activity, and has to guard that the field can only be **filled**, not
+changed.
 
 ### Migration
 
@@ -220,7 +239,32 @@ reason you switch to "All" is to read a resolved thread and decide whether it ne
 you cannot make that call from a truncated first line. Greying in place would also keep costing
 vertical space, which defeats the point of resolving at all.
 
-The toggle is per-panel UI state, so it belongs in `commentsState`; it does not need URL persistence.
+The toggle is per-panel UI state, so it belongs in `commentsState` — phase 01 created that module with
+one boolean, and this is its second field:
+
+```js
+export const commentsState = reactive({
+  open: false, // phase 01
+  showResolved: false, // this phase — false is "Open", true is "All"
+})
+
+export function resetCommentsState() {
+  commentsState.open = false
+  commentsState.showResolved = false
+}
+```
+
+Three things follow from putting it there rather than in the component:
+
+- `CommentsList` and the header toggle read the same flag without prop plumbing, and the panel is a
+  singleton so there is exactly one of it.
+- It gets cleared on camp change by phase 01's `resetCommentsState()` watcher, which is what you want:
+  "All" is a mode you switched into to deal with one camp's backlog.
+- Phase 04 reads the **same** flag to decide which anchors are highlighted in the content, so the
+  toggle and the highlights cannot disagree.
+
+It does **not** get URL persistence. Unlike phase 02's dashboard filters, nobody sends a colleague a
+link to a panel state.
 
 **`CommentComposer.vue`** — gains an optional `parent` prop; when set, the POST body carries
 `parent: <iri>` and omits nothing else. `camp` and `activity` are still required and still arrive as

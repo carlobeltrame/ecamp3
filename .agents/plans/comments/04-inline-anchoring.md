@@ -22,25 +22,43 @@ The frontend already addresses every field inside every content node as `uri` + 
 path (`frontend/src/mixins/apiPropsMixin.js`, `ApiWrapper.vue:119,258`). Every surface the product
 owner named is already reachable that way:
 
-| surface                          | uri                              | path (already in the code)          |
-| -------------------------------- | -------------------------------- | ----------------------------------- |
-| Notes rich text                  | `/content_node/single_texts/x`   | `data.html`                         |
-| Storyboard cell                  | `/content_node/storyboards/x`    | `data.sections[<uuid>].column2Html` |
-| A whole content-node card        | any content node                 | — (null)                            |
-| _future:_ one selected checklist | `/content_node/checklists/x`     | `data.checklistItems[<uuid>]`       |
-| _future:_ one material item      | `/content_node/material_lists/x` | `data.items[<uuid>]`                |
-| _future:_ schedule entry         | `/schedule_entries/x`            | —                                   |
+| surface                   | uri                            | path (already in the code)          |
+| ------------------------- | ------------------------------ | ----------------------------------- |
+| Notes rich text           | `/content_node/single_texts/x` | `data.html`                         |
+| Storyboard cell           | `/content_node/storyboards/x`  | `data.sections[<uuid>].column2Html` |
+| A whole content-node card | any content node               | — (null)                            |
 
 So a storyboard cell is **not a new anchor type**: it is the same `contentNode` FK with a different
 `anchorPath`. This is where the reference fork is inverted — it treats tiptap as the base case and
 cannot express the others at all.
 
-**`anchorPath` is deliberately not a rich-text feature.** The two future rows above are the reason: the
-things people will want to point at inside a content node are as often list entries as text ranges — a
-particular checklist that got selected, one material item — and neither has a tiptap mark. So
-`anchorPath` addresses a **field of the payload**, and `anchorId` is the optional extra level that only
-exists when that field happens to be rich text. Anything that keeps that split clean is worth doing;
-anything that assumes "an anchor inside a content node means a text range" is not.
+**`anchorPath` is deliberately not a rich-text feature**, even though every surface it addresses in this
+phase happens to be one. It points at a **field of the target's payload**; `anchorId` is the extra level
+that exists only when that field holds rich text. Keep that split clean, and do not let anything assume
+"an anchor inside a content node means a text range".
+
+### Where checklist items and material items would go: a foreign key, not `anchorPath`
+
+Worth settling now, because it is the obvious next request and the answer is not the one the table above
+suggests. A selected checklist and a material item are **not fields of a content node's payload** — they
+are entities of their own, with their own per-camp URIs:
+
+- `ContentNode\ChecklistNode::$checklistItems` is a `ManyToMany` to `ChecklistItem` through the
+  `checklistnode_checklistitem` join table; a `ChecklistItem` belongs to a `Checklist`, which belongs to
+  a camp.
+- `MaterialItem::$materialNode` is a `ManyToOne` from the item to the node; the items are rows, not JSON.
+
+Neither has a stable identifier inside the node's `data`, so neither can be addressed by `anchorPath`,
+and `anchorId` is wrong for both — it is a mark id the editor mints, not an entity reference. They get
+**their own nullable FK columns on `Comment`**, exactly like `scheduleEntry`: `checklistItem`,
+`materialItem`. That is the "typed nullable foreign keys plus one generic `anchorPath`" model in the
+epic doing what it was designed for.
+
+The cost of each new anchor type is therefore one nullable column, one index, one condition in
+`AssertValidAnchor`, and one `registerAnchorSurface` call — no migration of existing rows, no change to
+anything already shipped. It is also why we are not tempted by a polymorphic `(targetType, targetId)`
+pair: that saves a column per type and gives up every foreign key, every `ON DELETE SET NULL`, and the
+orphaning behaviour that the whole design rests on.
 
 ## Should we use Tiptap's own Comments extension? No.
 
@@ -154,8 +172,17 @@ snapshot exactly as it was when the comment was written. Three reasons, in order
 - **It costs writes.** A refresh would have to PATCH on every autosave of the surrounding field.
 
 The live position is carried by the **mark**, which _does_ follow every edit. The snapshot's job is to
-survive the mark's death, not to track it. It is updated in exactly one situation: a human explicitly
-re-attaches the thread to something else, which also changes what the comment is about.
+survive the mark's death, not to track it.
+
+**It is not updated by re-anchoring either.** Re-attaching a thread PATCHes `contentNode`,
+`anchorPath` and `anchorId` — never `anchorText`. That is the whole reason re-attaching is possible at
+all: the snapshot says what the comment was written against, so whoever reattaches it has something to
+match the new location against, and a reader afterwards can still see what the original text was. If
+reattaching rewrote the snapshot, the second reattach would have nothing to go on.
+
+So `anchorText` is write-once: `#[Groups(['read', 'create'])]`, **not** in the `update` group. That is
+one fewer field any collaborator can change on someone else's comment, and it makes the freeze an API
+guarantee instead of a frontend convention.
 
 Consequence to accept knowingly: after enough editing the snapshot stops matching the text, so the
 exact-match recovery above will not fire. That is correct behaviour rather than a limitation — if the
@@ -293,13 +320,16 @@ public ?string $anchorId = null;
 #[InputFilter\CleanText]
 #[Assert\Length(max: 255)]
 #[ApiProperty(example: 'the sentence that was commented on')]
-#[Groups(['read', 'create', 'update'])]
+#[Groups(['read', 'create'])]   // write-once — see the anchorText chapter
 #[ORM\Column(type: 'text', nullable: true)]
 public ?string $anchorText = null;
 ```
 
-The anchor fields **must** be in the `update` group, not only `create` — re-anchoring after a
-concurrent edit is the entire reason `anchorText` exists.
+`contentNode`, `anchorPath` and `anchorId` **must** be in the `update` group, not only `create` — a
+de-anchored thread being re-attached is the entire point. `anchorText` must **not** be, for the reasons
+in the chapter above.
+
+**`activity` also joins the `update` group**, guarded — see "Orphaned comments need a home" below.
 
 Add `contentNode` to the `SearchFilter` properties.
 
@@ -403,6 +433,53 @@ attributes.**
 Comments themselves stay excluded from prototype copies by omission (`Comment` does not implement
 `CopyFromPrototypeInterface`). Keep it that way.
 
+### Should the server clean dead anchors out of rich text on save? Cheap, but no
+
+Since the client no longer sweeps (see "The tiptap mark"), the honest alternative is not
+"client-side versus server-side" but "server-side versus nothing". Worth pricing, because the answer is
+not obvious and the hook already exists.
+
+**It would be cheap.** `SingleTextPersistProcessor::onBefore()` already receives the whole `SingleText`
+entity and already runs `CleanHTMLFilter` over `$data['html']`; `StoryboardPersistProcessor` is the same
+shape. A cleanup there is one indexed query —
+`SELECT anchor_id FROM comment WHERE content_node_id = :id AND anchor_id IS NOT NULL` — plus one regex
+pass to drop every `data-comment-id` not in that set. Sub-millisecond, on an already-parsed string, in a
+processor that runs anyway.
+
+**Do it anyway? No.** Three reasons, in order:
+
+- **Nothing observable improves.** With decoration-based styling, an attribute with no comment behind it
+  renders as plain text and is invisible in the editor, in the Nuxt print and in the PDF. The only thing
+  the pass buys is tidier stored HTML.
+- **It imposes an ordering constraint on comment creation.** Today's draft flow is commit-the-mark →
+  autosave → POST the comment. Under a server-side cleanup, an autosave that wins the race against the
+  POST would delete the brand-new mark, and — unlike the fork's `pendingAnchorIds` hack — the client
+  could not paper over it, because the deletion happens on the server. The frontend would have to POST
+  the comment first and only then apply the mark. That is arguably the better order, but it is a
+  coupling that has to hold forever.
+- **It is a destructive operation on the hottest write path in the app.** Every autosave of every rich
+  text would gain a branch that deletes something. The cost of getting it subtly wrong is losing anchors;
+  the cost of not having it is invisible cruft.
+
+Recorded, with the design, so nobody has to re-derive it: if stored anchors ever do need collecting, this
+is where and how, and it needs the comment-before-mark ordering as a prerequisite.
+
+### What if a comment's `anchorId` is never cleared?
+
+It never is — that is the design, not a failure mode. When the anchored text is deleted, **nothing writes
+to the comment**: it keeps its `anchorId`, `anchorPath`, `contentNode` and `anchorText`, and the frontend
+concludes "de-anchored" from the mark's absence, not from a null column. Which means:
+
+- there is no write on page load, so opening an activity can never mutate comments;
+- the recovery information survives, which is the whole point — a comment with its `anchorId` cleared
+  could not be re-anchored automatically when its text comes back from an undo or a paste;
+- a comment whose content node was **deleted** does get `contentNode = NULL` from the FK, and that is the
+  database doing it, not the client.
+
+So the two states are "the mark is there" and "the mark is not there right now", and the second one is
+recoverable by definition. The failure the question implies — a comment stuck pointing at something that
+no longer exists — is exactly the state the panel is designed to display and offer a repair for.
+
 ### Optional
 
 An inverse `#[ORM\OneToMany]` on `ContentNode` would give a free `_links.comments` on every content
@@ -441,11 +518,31 @@ export function focusComment(commentUri) // content → panel
 module is a singleton, and `anchors` / `commentsLoaded` / `activeCommentUri` are all statements about a
 particular camp's comments; carrying them into the next camp means the new camp briefly renders the old
 one's anchors, and `commentsLoaded === true` lets re-anchoring run against them. Reset rather than
-key-by-camp: a `resetCommentsState()` called from a `watch` on `campFromRoute` in `CommentsPanel` is a
-few lines, whereas a per-camp map has to be evicted anyway and gives nothing back — nobody looks at two
-camps at once. Phase 01 already needs `resetCommentsState()` for its tests, so this phase only adds the
-fields to it and the watcher; **its test belongs in phase 01** so the reset does not arrive
-retroactively.
+key-by-camp: a per-camp map has to be evicted anyway and gives nothing back, since eCamp cannot show two
+camps in one tab.
+
+Phase 01 created `resetCommentsState()` and the `watch` on `camp` in `CommentsPanel` that calls it, and
+phase 03 added `showResolved` to it. This phase adds the rest:
+
+```js
+export function resetCommentsState() {
+  commentsState.open = false // phase 01
+  commentsState.showResolved = false // phase 03
+  commentsState.commentsLoaded = false
+  commentsState.activeCommentUri = null
+  commentsState.anchors = []
+  commentsState.anchorGeneration++
+}
+```
+
+Two details that are easy to get wrong. `anchorGeneration` is **incremented, not zeroed** — it is a
+change signal, and resetting it to 0 can make a stale computed think nothing changed. The registry `Map`
+of hosts is **not** cleared here: hosts unregister themselves on unmount, and clearing the map from
+under components that are still mounted would leave them unable to unregister cleanly. The camp change
+unmounts them anyway.
+
+The test for the reset itself belongs in phase 01, where the watcher is introduced; what this phase adds
+is a case asserting the new fields are included.
 
 Keep the registry of hosts itself in a plain module-scope `Map` outside the `reactive()` — it holds
 element references and callbacks, which have no business being reactive. Only the fields above are.
@@ -501,9 +598,22 @@ panel is simply chronological within each activity group. That is the right answ
 degradation: document order communicates nothing when the document is not next to the panel, and it
 means camp scope needs no anchor machinery, no layout reads and no extra API data.
 
-The reactivity is therefore one integer. The sorted list is a computed over `[comments,
-anchorGeneration]`, where `anchorGeneration` is bumped by `registerAnchorSurface` / its unregister and
-after a re-anchor. Editors mounting and unmounting is the only thing that can change the answer.
+**The reactivity is one integer, and it does have to cover in-document moves.** Dragging a sentence to
+another paragraph inside an editor changes DOM order without mounting or unmounting anything, so
+`anchorGeneration` cannot only be bumped by `registerAnchorSurface`. Bump it in four places:
+
+- `registerAnchorSurface` and its `unregister` — surfaces appearing and disappearing;
+- the editor's `onUpdate` — every document change, which covers text drag-and-drop, paragraph splits,
+  deletions and re-anchoring in one hook;
+- after a re-anchor applies a mark, if that does not already go through `onUpdate`;
+- when the `layoutMode` flag flips — see below. Dragging content-node cards reorders surfaces in the DOM
+  without mounting anything or touching any document, so this is the one reorder nothing else catches.
+
+The sorted list is then a computed over `[comments, anchorGeneration]`. Bumping on every keystroke
+sounds expensive and is not: the computed re-runs a `compareDocumentPosition` sort over the handful of
+anchors in one activity, with no layout reads and nothing to invalidate downstream. If it ever shows up
+in a profile, debounce the `onUpdate` bump — the editor already debounces its autosave, so there is a
+precedent and a number to copy.
 
 If a future surface ever needs to override this — an anchor host whose DOM order does not match its
 logical order — the escape hatch is an optional `order` number on the host, consulted before the DOM
@@ -527,23 +637,44 @@ A `commentAnchorMixin` (or `useCommentAnchor`) wraps register-on-mount / unregis
   with distinct `path`s. That is the whole payoff of reusing `uri` + `path`.
 - **Whole content-node card** (`layout/ContentNodeCard.vue`): one call, `el` = the card root,
   `path: null`. One file covers every content type, including the ones with no rich text at all.
-- **Picasso schedule entry**: one call, target `scheduleEntry`, `path: null`. Needs the
-  `scheduleEntry` FK column — postponed, see the open question below.
+  Those two are the surfaces this phase ships. Three more are designed for and deliberately not built,
+  each one `registerAnchorSurface` call plus its FK column when the time comes:
 
-That is the whole list for this phase. An earlier draft also anchored **individual LA thematic-area
-options**; dropped, because commenting on the whole LA thematic-area card says the same thing and the
-options are not standing checkboxes — `LAThematicArea.vue` renders an `e-select` whose rows live inside
-a transient dropdown, so a per-option anchor would need a host that is only sometimes in the DOM for its
-first real use. The genuinely wanted sub-content-node anchors are elsewhere anyway (a selected checklist
-item, a single material item), so paying for a fiddly one now buys nothing. What matters is that the
-**model** stays able to express them, which it does — see "The insight that keeps this small".
+- **Schedule entry** — target `scheduleEntry`, `path: null`, hosted by the picasso row _and_ by the
+  activity page's schedule-entry list. Postponed; see the open question below.
+- **A selected checklist item** — target `checklistItem`, hosted by the row in `ChecklistNode`'s list.
+- **A material item** — target `materialItem`, hosted by the row in `MaterialNode`'s list.
 
-**In layout mode, anchors are hidden.** `ContentNodeCard` renders its body
-`pointer-events-none user-select-none` while the user is rearranging cards, editors are disabled, and
-comment affordances would compete with the drag handles and the delete buttons. So: no highlights, no
-comment buttons, and no `registerAnchorSurface` while `layoutMode` is on. This is the easier of the two
-options and also the better one — the drag-and-drop layout is the one screen where nobody is reading
-prose.
+An earlier draft also anchored **individual LA thematic-area options**; dropped, because commenting on
+the whole LA thematic-area card says the same thing and the options are not standing checkboxes —
+`LAThematicArea.vue` renders an `e-select` whose rows live inside a transient dropdown, so a per-option
+anchor would need a host that is only sometimes in the DOM, for the least valuable of the three
+sub-content-node anchors. The two entity-backed rows above are the ones people will actually ask for.
+
+**In layout mode, anchors are hidden — but surfaces stay registered, and so does the panel.** While the
+user rearranges cards, `ContentNodeCard` renders its body `pointer-events-none user-select-none` and the
+content components pass `:disabled="layoutMode || disabled"` down (see `Notes.vue`), so highlights and
+comment affordances would compete with the drag handles and the delete buttons. Suppress those: no
+decorations, no comment buttons, no reattach, no snippet recovery.
+
+**Do not unregister the surfaces to achieve that.** Disabled is not unmounted — the editors still render
+and the mark spans are still in the DOM — so the surfaces can still resolve their anchors, and they must
+keep doing so. If entering layout mode unregistered everything, no anchor would resolve, every anchored
+thread would fall back to `createTime`, and the panel would visibly re-sort on the way in and re-sort
+back on the way out. A list that shuffles itself because you started dragging a card is exactly the kind
+of thing that reads as a bug. Registration tracks whether the surface is **in the DOM**; layout mode is a
+question about what is **visible and interactive**, and conflating the two produces this.
+
+So gate the visuals on `layoutMode` explicitly — it is one condition in the decoration plugin and one on
+each affordance — rather than trying to get it for free from unregistration.
+
+The one thing that does need a nudge: dragging cards around reorders surfaces in the DOM without
+mounting anything, so **bump `anchorGeneration` when `layoutMode` flips**. One watcher, and the panel
+picks up the new card order once, on the way out, instead of never.
+
+Do not hide the panel either. It is a global drawer, so hiding and restoring it on every layout-mode
+toggle is a visible jolt for no gain, and a panel that keeps working while you rearrange cards is useful:
+"which cards have feedback on them" is a reasonable thing to consult while deciding where to put them.
 
 Every call site already knows what kind of thing it is anchoring to — `ContentNodeCard` is a content
 node, on the picasso the only thing commentable is a schedule entry — so it just names the key:
@@ -567,35 +698,6 @@ type.
 Losing a card-level anchor is the simple case: there is no snippet to search for and no mark to
 reconcile. Either the content node still exists — in which case the anchor is intact by definition — or
 it was deleted and `contentNode` went to `NULL`.
-
-### Re-attaching a de-anchored thread
-
-**"Reattach" is a mode, not a click target elsewhere.**
-
-1. The de-anchored card carries a **Reattach** button, next to its quoted snapshot.
-2. Clicking it puts the page into reattach mode for that thread: eligible targets — the activity's
-   rich-text fields and content-node cards — **highlight on hover**, everything else does not react, and
-   an escape/cancel affordance is always visible.
-3. Clicking a card attaches the thread to it. In a rich text, the user selects a range and confirms, so
-   the gesture matches what a text anchor is.
-4. One PATCH with the new `contentNode` / `anchorPath` / `anchorId` / `anchorText`.
-
-Two constraints on when it is offered:
-
-- **Only on de-anchored threads, never on anchored ones.** Moving a thread to a different piece of text
-  changes what the comment says about the camp, and comments are not editable. For a thread whose anchor
-  is gone the meaning is already unrecoverable, so restoring it is a repair; for a thread whose anchor is
-  fine it would be a rewrite.
-- **Author only.** Same reasoning, one step further: re-attaching someone else's comment is editing it.
-  Enforce it in `securityPostDenormalize`, alongside the existing rule that resolving is open to every
-  collaborator — the split is "anyone can act on the thread's status, only the author can change what it
-  points at". _Default: author only._ The cost is that a departed coach's de-anchored comment can never
-  be re-attached, which is acceptable because resolving it still works.
-
-Note the automatic exact-match recovery is not affected by either rule: it re-applies a **mark in the
-document** and PATCHes nothing, so it is not an edit to anybody's comment. It does need write access to
-the content node, which means it simply does not happen for a guest — their editors are read-only — and
-the thread stays de-anchored until someone who can edit opens the activity.
 
 ### The tiptap mark
 
@@ -708,22 +810,50 @@ rAF-batched pass driven by a `ResizeObserver` on the content root plus a passive
 Do not wait for CSS anchor positioning (`anchor-name` / `position-anchor`) — still not
 cross-browser.
 
-### Orphan handling and re-anchoring
+### Recovering a de-anchored thread
 
-A thread whose anchor is gone renders **above its activity's group** in the panel (phase 02 designed
-the grouping with this slot in mind), showing its `anchorText` snapshot as a quote plus a **re-anchor**
-action. Order of recovery:
+A thread whose anchor is gone renders **above its activity's group** in the panel (phase 02 designed the
+grouping with this slot in mind), showing its `anchorText` snapshot as a quote plus a **Reattach**
+action. Two levels of recovery:
 
-1. **Automatic, exact and unique.** For a text anchor, `findSnippetRanges` finds the snapshot in the
-   content node's editors; a single match re-applies the mark and the user never learns anything was
-   wrong. This covers cut-paste and delete-retype. Zero or several matches fall through.
-2. **Manual.** The Reattach mode described above — de-anchored threads only, author only.
+**1. Automatic, exact and unique.** For a text anchor, `findSnippetRanges` looks for the snapshot in the
+content node's editors; a single match re-applies the mark and the user never learns anything was wrong.
+This covers cut-paste and delete-retype. Zero or several matches fall through to the manual path. It
+re-applies a **mark in the document** and PATCHes nothing, so it is not an edit to anybody's comment — it
+does need write access to the content node, which means it does not happen for a guest (read-only
+editors) and the thread stays de-anchored until someone who can edit opens the activity.
+
+**2. Manual — Reattach is a mode, not a click target elsewhere.**
+
+1. The de-anchored card carries a **Reattach** button next to its quoted snapshot.
+2. Clicking it puts the page into reattach mode for that thread: eligible targets — the activity's
+   rich-text fields and content-node cards — **highlight on hover**, everything else does not react, and
+   a cancel affordance stays visible throughout.
+3. Clicking a card attaches the thread to it. In a rich text, the user selects a range and confirms, so
+   the gesture matches what a text anchor is.
+4. One PATCH of `contentNode` / `anchorPath` / `anchorId`. **Not `anchorText`** — the snapshot stays as
+   written, which is what makes a second reattach possible and what keeps the record honest.
+
+**Offered on de-anchored threads only, never on ones whose anchor is intact.** Moving a thread that is
+correctly anchored would change what the comment says about the camp, and comments are not editable.
+Moving one whose anchor is gone is a repair, and it is only possible _because_ `anchorText` preserved
+what the comment was written against.
+
+**Any collaborator may do it, not only the author.** A de-anchored, unresolved thread ought to be the
+exception, and eCamp's users are volunteers — expecting each of them to watch their own comments and
+re-attach them whenever somebody edits the programme is not realistic, and the practical result would be
+threads that quietly stay lost. The consistency argument for author-only is weaker than it looks anyway:
+the automatic snippet recovery already re-anchors anybody's thread without asking, so the rule would
+only cover the cases the matcher happens to miss. It does technically allow re-pointing someone else's
+thread by deleting its anchor first and re-attaching it elsewhere. Tolerable for now — it takes
+deliberate effort, it leaves the comment text and its snapshot untouched, and nothing else in the feature
+depends on it being impossible.
 
 **Reattach is offered in activity scope only**, which removes the "not on this page" problem rather than
 solving it. In activity scope the panel shows exactly that activity's comments and that activity's
 content is on screen, so a missing mark really does mean de-anchored; a comment anchored in some other
 activity is not in the list to begin with. In camp scope nothing is mounted and nothing resolves, so
-anchored threads are listed as ordinary chronological entries with no anchor actions at all.
+anchored threads are listed as ordinary chronological entries with no anchor actions.
 
 The remaining timing trap is real, though: even in activity scope, "no mark found" only means something
 once the comments have loaded **and** the surface has registered. Both are already tracked —
@@ -731,6 +861,32 @@ once the comments have loaded **and** the surface has registered. Both are alrea
 test is those two conditions plus a failed lookup, never a bare failed lookup. Keep the fork's
 `commentsLoaded` flag, set by `CommentsList` once its collection resolves; guarding this is the only job
 it still has here, since we do not copy the mark-stripping sweep.
+
+### Orphaned comments need a home, in two steps
+
+A consequence of "activity scope only" is that a comment with **no activity at all** — an orphan, whose
+activity was deleted — can never be reattached, because there is no activity page to do it from. That
+group must not be a dead end: an orphan is exactly the comment most likely to still matter, since
+somebody deleted the activity it was about and the feedback probably applies to whatever replaced it.
+
+Support it in two steps, which is acceptable and keeps each step simple:
+
+1. **In camp scope**, the orphan bucket's cards get a **"Move to activity…"** action: pick an activity of
+   the same camp, one PATCH of `activity`. `CommentUpdateProcessor` clears `orphanDescription` in the
+   same write, since the comment is no longer orphaned and would otherwise show up in both the orphan
+   bucket and the activity's group.
+2. **Then, on that activity**, the ordinary Reattach flow above narrows it to a text range or a card, if
+   the user wants that precision. Many will stop after step 1, which is fine — an activity-level comment
+   is a complete answer.
+
+This is why `activity` joins the `update` group. Guard it so it can only ever be filled, never changed:
+`securityPostDenormalize: previous_object.activity === null or object.activity === previous_object.activity`
+on the `Patch` operation. Without that, the same field lets anyone move any comment between activities,
+which is a rewrite rather than a repair. `AssertBelongsToSameCamp` on `$activity` already prevents moving
+a comment into another camp.
+
+De-anchored comments that still have their activity are deliberately **not** movable to a different
+activity. If the feedback belongs somewhere else entirely, that is a new comment, not a relocated one.
 
 ### Dev data seeds
 
@@ -770,6 +926,7 @@ api/src/Validator/Comment/AssertValidAnchor.php                 new
 api/src/Validator/Comment/AssertValidAnchorValidator.php        new
 api/tests/Validator/Comment/AssertValidAnchorValidatorTest.php  new
 api/src/Util/GetActivityFromContentNodeTrait.php                 modified (+content-node branch)
+api/src/State/CommentUpdateProcessor.php                         modified (clear orphanDescription)
 api/tests/Validator/Comment/AssertBelongsToSameActivityValidatorTest.php  +ContentNode cases
 api/config/packages/exercise_html_purifier.yaml                 +3 lines
 api/migrations/schema/VersionYYYYMMDDHHMMSS.php                 new
@@ -822,11 +979,12 @@ Specific cases that must exist:
   API test proves they are wired up);
 - an `anchorPath` that fails the regex → 422;
 - a `contentNode` from a different camp → 422 "Must belong to the same camp.";
-- PATCH re-anchoring an orphan to a different content node of the same activity, **as its author** →
-  200; the same PATCH as another collaborator → 403, while that collaborator's `resolved` PATCH still
-  succeeds;
-- PATCH of `anchorText` alone does not happen anywhere in the frontend, but the API allows it for the
-  author — assert the author-only rule rather than the field being immutable;
+- PATCH re-anchoring a de-anchored thread to a different content node of the same activity → 200,
+  **as a collaborator who is not the author** as well;
+- PATCH of `anchorText` → the field is unchanged, because it is not in the `update` group;
+- PATCH setting `activity` on an **orphan** → 200, and `orphanDescription` comes back null;
+- PATCH changing `activity` on a comment that already has one → 403 (`previous_object` guard);
+- PATCH setting `activity` to an activity of a **different camp** → 422;
 - deleting a content node sets `contentNode` to NULL and leaves the comment readable;
 - **deleting a parent `ColumnLayout`** (DB cascade path, no processor) does the same — this is the
   case a remove-processor would have missed, and it is a tested, intended behaviour of the API (see
@@ -837,7 +995,9 @@ Specific cases that must exist:
   actually take;
 - `commentsState.spec.js` — document-order sorting over registered surfaces, the `createTime` fallback
   for unresolved anchors, that unregistering a surface bumps `anchorGeneration`, and that
-  `resetCommentsState()` clears the anchors and `commentsLoaded`;
+  `resetCommentsState()` clears the anchors and `commentsLoaded` while _incrementing_ the generation;
+- entering layout mode does **not** change the panel's order — the regression test for the
+  unregister-everything mistake;
 - `CommentMark.spec.js` — one anchor id resolving to **two spans** after a paragraph split, and a
   document containing a duplicate id rendering without error;
 - `RichText.spec.js` — an anchored range renders its text in place, with surrounding marks intact.
@@ -869,30 +1029,39 @@ snapshot, so do not treat a docblock edit as a comment-only change.
     what was written at the time, which is the point.
 11. Add a comment on one storyboard cell and one on a whole content-node card. Two separate anchored
     threads; each highlights its own surface. The card thread's quote is the card's title.
-12. Switch the activity to **layout mode**. All highlights and comment buttons disappear; switch back and
-    they return unchanged.
-13. Rewrite the commented sentence entirely. The thread moves above its activity's group, showing its
-    snapshot as a quote and a **Reattach** button. As the author, click it: eligible targets highlight on
-    hover, and picking a new range reattaches the thread. As a different collaborator, the button is
-    absent.
-14. Open the same activity from a **camp-scope** page. The anchored threads are listed chronologically,
+12. Switch the activity to **layout mode**. All highlights and comment buttons disappear, and the panel
+    keeps listing the same threads **in the same order** — it must not re-sort. Drag a commented card to
+    a different column, leave layout mode: the highlights return and the panel now reflects the new card
+    order.
+13. Drag a commented sentence to a different paragraph of the same field. The highlight moves with it and
+    the panel **reorders** to match, without a reload.
+14. Rewrite the commented sentence entirely. The thread moves above its activity's group, showing its
+    snapshot as a quote and a **Reattach** button. Click it: eligible targets highlight on hover, and
+    picking a new range reattaches the thread — **as a collaborator who did not write the comment**, and
+    the quote is still the original text afterwards. A thread whose anchor is intact has no Reattach
+    button at all.
+15. Open the same activity from a **camp-scope** page. The anchored threads are listed chronologically,
     with no anchor actions, no errors, and no highlight machinery running.
-15. Navigate from this camp to another camp. The panel closes and shows nothing from the previous camp;
+16. Navigate from this camp to another camp. The panel closes and shows nothing from the previous camp;
     no stale highlight appears in the new camp's activities.
-16. Delete the whole content node, then (in another activity) delete the _parent column layout_ of a
+17. Delete the whole content node, then (in another activity) delete the _parent column layout_ of a
     commented content node. Both threads survive, orphaned, still showing their snapshots.
-17. Create a camp from a prototype whose activities contain anchored comments, and **copy an activity**
+18. Delete an activity that has comments, then open the panel in camp scope. The comments are in the
+    orphan bucket with **Move to activity…**; move one to a replacement activity. It leaves the orphan
+    bucket, appears under the new activity, and can then be reattached to a text range there.
+19. Create a camp from a prototype whose activities contain anchored comments, and **copy an activity**
     that has them. Neither copy contains a `data-comment-id` or a comment.
-18. Print the camp both ways. In the Nuxt print and in the client-side PDF, the commented sentence
+20. Print the camp both ways. In the Nuxt print and in the client-side PDF, the commented sentence
     renders **in full** — this is the regression the anchor-span rule prevents.
-19. Resolve an anchored thread. Its highlight disappears from the text while the panel shows "Open".
+21. Resolve an anchored thread. Its highlight disappears from the text while the panel shows "Open".
     Switch to "All": the thread reappears in full **and so does its highlight**, muted.
 
 ## Open questions
 
-- Ship the `scheduleEntry` FK in this migration, or wait for the picasso work? _Default: wait_ — one
-  nullable column plus an index is a trivial later migration, and nothing in this phase needs it.
-  What must **not** happen is bricking the way there:
+- Ship the `scheduleEntry` FK in this migration anyway, on the grounds that it is nearly free? _Default:
+  no._ Nothing in this epic plans a picasso anchor — there is no phase waiting on it — and one nullable
+  column plus an index is a trivial migration whenever someone does want it. What must **not** happen is
+  bricking the way there:
   - `AssertValidAnchor` is written in terms of "an anchor target", not "a content node", so adding a
     second target type is one added condition in one validator with one test file — which is the point
     of combining those rules into a validator rather than scattering expressions;
@@ -903,6 +1072,8 @@ snapshot, so do not treat a docblock edit as a comment-only change.
   - the obvious first surface is **not** only the picasso: an activity's schedule entries are listed on
     the activity detail page too, so the same anchor would show there, with the list item as the
     highlighted surface. Do not design the picasso row as the only possible host.
+  - the same reasoning covers `checklistItem` and `materialItem` — see "Where checklist items and
+    material items would go". Whoever adds the second FK sets the pattern the third and fourth follow.
 - Take the MIT `@sereneinserenade/tiptap-comment-extension` instead of the fork's `CommentMark.js`?
   _Default: no_, see the evaluation above. Revisit if `CommentMark.js` proves hard to maintain.
 
@@ -914,15 +1085,20 @@ snapshot, so do not treat a docblock edit as a comment-only change.
       one registry call per surface type.
 - [ ] Anchors survive mid-range edits, paragraph splits, cut-paste and delete-retype; copy-paste creates
       no second anchor, and one id resolving to several elements is handled everywhere.
-- [ ] `anchorText` is never rewritten by anything except an explicit reattach.
+- [ ] `anchorText` is never rewritten at all — not by editing the content and not by reattaching; the
+      API keeps it out of the `update` group.
+- [ ] Panel order follows the document through in-editor moves, not only through mounts.
 - [ ] Category content nodes are rejected as anchor targets by the API.
 - [ ] Card ↔ anchor focus works in both directions, with scroll and highlight.
 - [ ] Anchor ordering is DOM-order based, with no layout reads and no scroll listeners.
 - [ ] Resolved anchors are hidden under "Open" and shown muted under "All"; nothing is highlighted in
-      layout mode.
+      layout mode, and entering layout mode does not reorder the panel.
 - [ ] A de-anchored thread shows its snapshot and can be recovered — automatically on an exact unique
-      text match, and otherwise by its author through Reattach, which is never offered on a thread whose
-      anchor is intact.
+      text match, and otherwise by any collaborator through Reattach, which is never offered on a thread
+      whose anchor is intact.
+- [ ] An orphaned comment can be moved to a replacement activity, and a comment that already has one
+      cannot be moved at all.
+- [ ] Nothing writes to a comment when its anchored text is deleted; `anchorId` is never cleared.
 - [ ] Comments state is cleared when the camp changes.
 - [ ] Deleting a content node — including via parent cascade — orphans rather than deletes.
 - [ ] Copies carry no anchor attributes and no comments — camp from prototype **and** activity copy,
