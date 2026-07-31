@@ -22,7 +22,7 @@ the comments request, and every string is hardcoded German.
 | Camp-level comments, orphan comments                      | 02                                                   |
 | A cross-camp overview                                     | 06                                                   |
 | Replies, resolve/unresolve                                | 03                                                   |
-| Anchoring to text ranges, checkboxes, schedule entries    | 04                                                   |
+| Anchoring to text ranges, content nodes, schedule entries | 04                                                   |
 | Editing a comment                                         | never — see epic decision 3                          |
 | A count badge on the toggle button                        | see "Never block page render" below                  |
 | An emoji picker                                           | never — native OS emoji input satisfies the MVP line |
@@ -160,16 +160,28 @@ and the picasso free.
 
 ### New files
 
-**`frontend/src/components/comments/commentsState.js`** (~15 lines)
+**`frontend/src/components/comments/commentsState.js`** (~20 lines)
 
 The module singleton and the home for all comments UI state. Provide/inject cannot reach the panel —
 it lives in `App.vue`, outside every page's provide tree — and Vuex is the wrong tool for a drawer's
-open state. In this phase it holds one boolean, because everything else comes from the route; phase
-04 grows it with the anchor registry.
+open state. In this phase it holds one boolean, because everything else comes from the route; phases
+03 and 04 grow it with the resolved-filter and the anchor registry.
 
 ```js
 export const commentsState = reactive({ open: false })
+
+export function resetCommentsState() {
+  commentsState.open = false
+}
 ```
+
+**`resetCommentsState()` exists from the start, and `CommentsPanel` calls it from a `watch` on
+`camp`.** Everything this module will ever hold is a statement about one camp's comments, so switching
+camps has to clear it — and the fields that make that matter (`commentsLoaded`, the loaded anchors, the
+focused thread) arrive in later phases, when the omission would be a subtle bug rather than an obvious
+one. Establishing the watcher now costs three lines and one test; retrofitting it costs a bug report
+about a camp showing another camp's comment highlights. Closing the panel on camp change is also just
+the right behaviour on its own.
 
 **`frontend/src/components/comments/CommentsPanel.vue`** (~130 lines)
 
@@ -488,10 +500,12 @@ Vue-2 `src/test/renderWithVuetify.js` — see the epic's Known gaps for the clea
   add one for both while you are there.
 - `CommentsPanel.spec.js` — the route wiring: with `vi.mock('@/router.js', …)` returning a camp and
   an activity the panel renders; with no camp it renders nothing; with `isOutsider` it renders
-  nothing; while collaborations load it renders nothing rather than flashing.
+  nothing; while collaborations load it renders nothing rather than flashing. Plus **the reset**:
+  changing the mocked camp calls `resetCommentsState()`, which later phases rely on to not leak one
+  camp's comment state into the next.
 
-`commentsState.js` holds one boolean in this phase and needs no test of its own. It is still the home
-for all comments UI state — phase 04 grows it with the anchor registry.
+`commentsState.js` itself holds one boolean in this phase and needs no test beyond that. It is still
+the home for all comments UI state — phases 03 and 04 grow it.
 
 - `CommentsList.spec.js` — loading skeletons, empty state, ordering, delete button present only on
   own comments and absent on others'.

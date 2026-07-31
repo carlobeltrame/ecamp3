@@ -18,13 +18,13 @@ same panel code. Apart, that is two migrations, two snapshot regenerations and t
 
 ## Non-goals
 
-| Not in this phase                              | Phase that does it                                 |
-| ---------------------------------------------- | -------------------------------------------------- |
-| Editing a comment's text                       | never — epic decision 3                            |
-| Nested replies (reply to a reply)              | never — threads are flat, see the validation below |
-| Anchoring a thread to a text range or checkbox | 04                                                 |
-| Notifying anyone that they got a reply         | 05                                                 |
-| Per-user read state on a thread                | 05                                                 |
+| Not in this phase                                  | Phase that does it                                 |
+| -------------------------------------------------- | -------------------------------------------------- |
+| Editing a comment's text                           | never — epic decision 3                            |
+| Nested replies (reply to a reply)                  | never — threads are flat, see the validation below |
+| Anchoring a thread to a text range or content node | 04                                                 |
+| Notifying anyone that they got a reply             | 05                                                 |
+| Per-user read state on a thread                    | 05                                                 |
 
 ## Backend changes
 
@@ -33,16 +33,31 @@ exposes only `read` and `create` serialization groups, and `UpdateCommentTest` a
 
 ### Threading (step 5)
 
+Every new property gets a docblock in the house style — a short summary of what it is for, in full
+sentences. API Platform reads them and emits them as `description` in the OpenAPI spec, so they show up
+in the snapshot; `Comment::$orphanDescription`'s docblock is in there verbatim three times today. Write
+them with the code, not after regenerating snapshots twice.
+
 ```php
+/**
+ * The comment this one replies to, or null if it starts a thread.
+ * Threads are flat: a reply always points at the root comment of its thread.
+ */
 #[AssertBelongsToSameCamp]
 #[AssertBelongsToSameActivity]
 #[Assert\Expression('value === null or value.parent === null', 'Cannot reply to a reply.')]
+#[ApiProperty(example: '/comments/1a2b3c4d')]
 #[Groups(['read', 'create'])]
 #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'children')]
 #[ORM\JoinColumn(nullable: true)]
 public ?Comment $parent = null;
 
-#[ApiProperty(writable: false)]
+/**
+ * The replies to this comment, oldest first. Always empty on a reply.
+ *
+ * @var Collection<int, Comment>
+ */
+#[ApiProperty(writable: false, example: '["/comments/1a2b3c4d"]')]
 #[Groups(['read'])]
 #[ORM\OneToMany(targetEntity: self::class, mappedBy: 'parent')]
 #[ORM\OrderBy(['createTime' => 'ASC'])]
@@ -52,25 +67,30 @@ public Collection $children;
 Initialise `$children` in a constructor. A fourth rule ("replies inherit the anchor and carry none of
 their own") belongs to phase 04, which adds it as part of its `AssertValidAnchor` validator.
 
-Phase 04 also **extends `AssertBelongsToSameActivity`** to accept a `ContentNode` value, so write it
-with that in mind: switch on the value type rather than assuming `Comment`, the way
-`AssertBelongsToSameCampValidator` already does for its several interfaces.
+Phase 04 also **extends `AssertBelongsToSameActivity`** to accept a `ContentNode` value — see the
+validator note below, which is why it is built interface-first rather than typed to `Comment`.
 
 **Write one custom validator, keep one rule inline.** The reference fork expresses all three as
 `Assert\Expression`; that is not the house pattern here, and one of the three genuinely needs a
 validator.
 
 - **`AssertBelongsToSameActivity` — new custom validator.** Nothing existing fits:
-  `AssertBelongsToSameCamp` resolves the camp through `GetCampFromContentNodeTrait` and is
-  camp-only, and the codebase already declined to generalise it once — `ChecklistItem/AssertBelongsToSameChecklist`
-  is a 39-line copy of the same shape hardcoded to `->checklist`. Copy that file into
-  `api/src/Validator/Comment/AssertBelongsToSameActivity{,Validator}.php` and swap `checklist` for
-  `activity`. It needs to be a validator rather than an expression because `Comment::$activity` is
-  **nullable**: the expression would need null guards on both sides plus `getId()` comparison
-  (every validator here compares `getId()`, never `==` on entities, because of Doctrine proxies),
-  which produces an untestable string longer than the validator body — and the null-on-both-sides
-  case could not be unit-tested at all. Decide that case explicitly; `AssertBelongsToSameCampValidator`
-  treats null/null as a violation, and matching it is probably right.
+  `AssertBelongsToSameCamp` is camp-only. It needs to be a validator rather than an expression because
+  `Comment::$activity` is **nullable**: the expression would need null guards on both sides plus
+  `getId()` comparison (every validator here compares `getId()`, never `==` on entities, because of
+  Doctrine proxies), which produces an untestable string longer than the validator body — and the
+  null-on-both-sides case could not be unit-tested at all. Decide that case explicitly;
+  `AssertBelongsToSameCampValidator` treats null/null as a violation, and matching it is probably right.
+
+  **Model it on `AssertBelongsToSameCampValidator`, not on `ChecklistItem/AssertBelongsToSameChecklist`.**
+  The checklist one is a 39-line copy hardcoded to `->checklist` and typed to one concrete class, which
+  is a dead end here: phase 04 has to feed a `ContentNode` through the same constraint. The camp
+  validator already solves that shape — it accepts anything implementing one of two **interfaces** and
+  resolves the awkward case through a trait (`GetCampFromContentNodeTrait::getCampFromInterface`). So
+  introduce `App\Entity\BelongsToActivityInterface` (`getActivity(): ?Activity`) implemented by
+  `Comment`, resolve both sides through an `App\Util\GetActivityFromContentNodeTrait`, and compare
+  `getId()`. Phase 04 then adds a content-node branch to the trait and nothing else.
+
 - **No-nesting — inline `Assert\Expression`, one line.** This is a depth-1 tree, so none of
   `AssertNoLoop` / `getNestingLevel()` / `getSubtreeDepth()` applies: a cycle is impossible at depth
   1, and self-parenting is already rejected because such a comment has `value.parent !== null`. A
@@ -116,11 +136,34 @@ new Patch(
 ),
 ```
 
-Columns `resolvedAt` (`?datetime`, `writable: false`, `read` group) and `resolvedBy` (`?User`,
-`writable: false`, `read` group, `ON DELETE SET NULL`), plus a write-only virtual flag:
+Two read-only columns plus a write-only virtual flag, all three with docblocks for the same reason as
+above:
 
 ```php
-#[ApiProperty(readable: false)]
+/**
+ * When the thread was resolved. Null if the comment is a reply or if
+ * the thread is still open.
+ */
+#[ApiProperty(writable: false, example: '2022-01-01T00:00:00+00:00')]
+#[Groups(['read'])]
+#[ORM\Column(type: 'datetime', nullable: true)]
+public ?\DateTimeInterface $resolvedAt = null;
+
+/**
+ * The user who resolved the thread. Null if the comment is a reply or
+ * if the thread is still open.
+ */
+#[Assert\DisableAutoMapping]
+#[ApiProperty(writable: false, example: '/users/1a2b3c4d')]
+#[Groups(['read'])]
+#[ORM\ManyToOne(targetEntity: User::class)]
+#[ORM\JoinColumn(nullable: true, onDelete: 'set null')]
+public ?User $resolvedBy = null;
+
+/**
+ * Write-only flag for resolving (true) or reopening (false) a thread.
+ */
+#[ApiProperty(readable: false, example: true)]
 #[Groups(['update'])]
 public ?bool $resolved = null;
 ```
@@ -134,11 +177,27 @@ That also means the fork's
 is unnecessary here.
 
 Resolving is a **collaborator** action, not an author-only one — mirroring how anyone with edit
-access to a Google Doc can resolve a thread.
+access to a Google Doc can resolve a thread. Phase 04 adds the counterpart rule: changing what a
+comment points at is author-only, enforced by a `securityPostDenormalize`. The split is "anyone can act
+on a thread's status, only its author can change what it says or points at".
 
 ### Migration
 
 One migration adding `parentId`, `resolvedAt`, `resolvedById`, the two FKs and their indexes.
+
+### Dev data seeds
+
+The toggle is on for `dev`, so threads and resolving need something to look at there, the same way
+phase 01 seeded the first comments. Same dump-based procedure
+(`api/migrations/dev-data/README.md`): wipe the local DB volume, create the data **through the
+frontend**, run `./create-data-migration-dump.sh`, hand-edit the new migration's `getDescription()`.
+
+Seed a thread with a couple of replies from different authors, a **resolved thread**, and a **resolved
+single comment with no replies** — the last one is the common case in practice and the one that shows
+whether a resolved comment reads sensibly on its own, without replies underneath it to carry the visual
+weight. Two traps carried over from phase 01: the DB wipe is mandatory or IDs drift, and the e2e suite
+hard-codes dev-data IDs (`e2e/utils/constants.ts`, plus the pinned lists under
+`e2e/tests/9-behavior-tests/httpCache/`), so re-run the behavior tests afterwards.
 
 ## Frontend changes
 
@@ -177,6 +236,10 @@ api/src/Entity/Comment.php                                       modified
 api/src/State/CommentUpdateProcessor.php                         new
 api/migrations/schema/VersionYYYYMMDDHHMMSS.php                  new
 api/fixtures/comments.yml                                        +reply and resolved fixtures
+api/src/Entity/BelongsToActivityInterface.php                    new
+api/src/Util/GetActivityFromContentNodeTrait.php                 new
+api/migrations/dev-data/data.sql                                 regenerated (+threads, +resolved)
+api/migrations/dev-data/Version<new>.php                         new (+ previous one gutted)
 api/tests/Api/Comments/UpdateCommentTest.php                     rewritten (currently asserts 405)
 api/tests/Api/Comments/CreateCommentTest.php                     +reply cases
 api/tests/Api/Comments/DeleteCommentTest.php                     +root-with-replies, +manager-denied

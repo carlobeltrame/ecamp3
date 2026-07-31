@@ -109,10 +109,12 @@ Anchors are **typed nullable foreign keys plus one generic `anchorPath`**.
 
 The insight that keeps this small: the frontend already addresses every field inside every content
 node as `uri` + `path` (a lodash path — see `frontend/src/mixins/apiPropsMixin.js` and
-`ApiWrapper.vue`). An LA-thematic-area checkbox is `data.options.<key>`; a storyboard cell is
-`data.sections[<uuid>].column2Html`; a Notes body is `data.html`. Those are **not** three anchor
-types — they are one `contentNode` FK with three different `anchorPath` values. The only genuinely
-new _entity_ on the entire roadmap is `ScheduleEntry`.
+`ApiWrapper.vue`). A Notes body is `data.html`; a storyboard cell is
+`data.sections[<uuid>].column2Html`; a selected checklist is `data.checklistItems[<uuid>]`. Those are
+**not** three anchor types — they are one `contentNode` FK with three different `anchorPath` values.
+Note that only the first is rich text: `anchorPath` addresses a **field of the payload**, and `anchorId`
+is the extra level that exists only when that field happens to hold rich text. The only genuinely new
+_entity_ on the entire roadmap is `ScheduleEntry`.
 
 ```
 comment
@@ -139,10 +141,13 @@ The granularity ladder falls out with no discriminator column:
 | whole activity (today)        | set      | null                     | null                                | null     |
 | whole content-node card       | set      | set                      | null                                | null     |
 | one storyboard section editor | set      | set                      | `data.sections[<uuid>].column2Html` | null     |
-| one LA checkbox               | set      | set                      | `data.options.<key>`                | null     |
 | text range                    | set      | set                      | `data.html`                         | `<uuid>` |
+| one selected checklist item   | set      | set                      | `data.checklistItems[<uuid>]`       | null     |
 | schedule entry                | set      | null (+ `scheduleEntry`) | null                                | null     |
 | orphaned                      | null     | null                     | kept                                | —        |
+
+The last three rows are expressible but not built in phase 04 — a checklist item selection or a material item
+is the shape people will ask for next, and the model already says how it would be stored.
 
 Orphaned is unambiguous with existing columns: `orphanDescription !== null`. No `anchorLevel`
 column.
