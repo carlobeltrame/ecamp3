@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  filterAndQueryAreEqual,
   halUriToId,
   idToHalUri,
   processRouteQuery,
@@ -225,6 +226,31 @@ describe('querySyncHelper', () => {
       const result = transformValuesToHalId(input)
 
       expect(result).toEqual(expected)
+    })
+  })
+  describe('filterAndQueryAreEqual', () => {
+    it.each([
+      [{}, {}],
+      [{ period: '1a2b' }, { period: '1a2b' }],
+      [{ category: ['1a2b'] }, { category: '1a2b' }],
+      [{ category: ['1a2b', '3c4d'] }, { category: ['3c4d', '1a2b'] }],
+      [{ category: ['1a2b'] }, { category: '1a2b', unrelated: 'x' }],
+    ])('should report %p and %p as equal', (filter, query) => {
+      expect(filterAndQueryAreEqual(filter, query)).toBe(true)
+    })
+
+    it.each([
+      [{ period: '1a2b' }, { period: '3c4d' }],
+      [{ period: '1a2b' }, {}],
+      [{}, { period: '1a2b' }],
+      [{ category: ['1a2b'] }, { category: ['3c4d'] }],
+      [{ category: ['1a2b'] }, {}],
+      [{}, { category: '1a2b' }],
+      [{ responsible: ['1a2b'] }, {}],
+      [{ progressLabel: ['1a2b'] }, {}],
+      [{ period: '1a2b', category: ['1a2b'] }, { category: '1a2b' }],
+    ])('should report %p and %p as different', (filter, query) => {
+      expect(filterAndQueryAreEqual(filter, query)).toBe(false)
     })
   })
 })

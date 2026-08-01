@@ -130,14 +130,13 @@ function isValidParamEntry(entry) {
  */
 export function filterAndQueryAreEqual(filter, query) {
   if (JSON.stringify(filter) === JSON.stringify(query)) return true
-  const arrayFiltersAreEqual = ['category', 'responsible', 'progressLabel']
-    .map((key) => ({
-      a: getValueAsArrayForKey(query, key),
-      b: getValueAsArrayForKey(filter, key),
-    }))
-    .map(({ a, b }) => JSON.stringify(a) === JSON.stringify(b))
-    .reduce((accum, curr) => accum && curr, true)
-  return arrayFiltersAreEqual && filter.period === query.period
+  return urlParamKeys.every((key) => {
+    if (key === 'period') return filter[key] === query[key]
+    return (
+      JSON.stringify(getValueAsArrayForKey(query, key)) ===
+      JSON.stringify(getValueAsArrayForKey(filter, key))
+    )
+  })
 }
 
 /**
