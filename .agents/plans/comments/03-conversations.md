@@ -195,10 +195,12 @@ That also means the fork's
 is unnecessary here.
 
 Resolving is a **collaborator** action, not an author-only one — mirroring how anyone with edit
-access to a Google Doc can resolve a thread. Phase 04 keeps that stance for re-anchoring, and adds the
-one `securityPostDenormalize` this entity does need: it opens `activity` for writing so an orphaned
-comment can be given a replacement activity, and has to guard that the field can only be **filled**, not
-changed.
+access to a Google Doc can resolve a thread.
+
+**`resolved` is the only thing PATCH will ever accept**, and that survives phase 04: anchors are set at
+creation and never updated, so phase 04 adds no writable field and no `securityPostDenormalize`. Resolve
+is also the answer phase 04 gives for a comment whose anchor got lost — there is no repair UI, the thread
+is simply readable and resolvable like any other.
 
 ### Migration
 
@@ -245,11 +247,13 @@ one boolean, and this is its second field:
 ```js
 export const commentsState = reactive({
   open: false, // phase 01
+  activityFilter: null, // phase 02 — the mobile dashboard badge
   showResolved: false, // this phase — false is "Open", true is "All"
 })
 
 export function resetCommentsState() {
   commentsState.open = false
+  commentsState.activityFilter = null
   commentsState.showResolved = false
 }
 ```

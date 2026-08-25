@@ -3,8 +3,8 @@
 Tracking issue: [ecamp/ecamp3#828](https://github.com/ecamp/ecamp3/issues/828)
 
 Users want to leave feedback on a camp's programme. The target feel is Google Docs comments:
-a right-hand panel of comment cards, later anchored to the thing they talk about, with a bottom
-sheet on mobile. The backend already has a minimal `Comment` entity; the frontend has a
+a right-hand panel of comment cards, later anchored to the thing they talk about, going fullscreen
+on mobile. The backend already has a minimal `Comment` entity; the frontend has a
 rudimentary, broken implementation that this epic replaces.
 
 The whole feature stays behind the existing `VITE_FEATURE_COMMENTS` toggle, wired exactly like
@@ -40,21 +40,21 @@ qualify for federal subsidies. That audience drives two rules that run against e
 
 The order comes from the issue and is fixed. "Where" says which phase file owns the step.
 
-| #   | Step                                                          | Where          | Depends on                           |
-| --- | ------------------------------------------------------------- | -------------- | ------------------------------------ |
-| 1   | Usable create / read / delete UI                              | 01             | —                                    |
-| 2   | Enable feature toggle                                         | 01             | 1                                    |
-| 3   | Dashboard indicates activities with comments                  | 02             | 1                                    |
-| 4   | A place for orphan and camp-level comments                    | 02 (the panel) | 1                                    |
-| 5   | Comment threads                                               | 03             | 1                                    |
-| 6   | Resolve / unresolve                                           | 03             | 5 (UI only; technically independent) |
-| 7   | Anchor to other entities / precise anchors, re-anchor orphans | 04             | 5                                    |
-| 8   | Personal notification bubble with read markers                | 05             | 3 (supersedes its badge)             |
-| 9   | Mentions                                                      | 05             | a delivery channel                   |
-| 10  | Multi-anchor + reference in comment text                      | **dropped**    | —                                    |
-| 11  | Push notifications                                            | 05             | 8, 9                                 |
-| 12  | Dashboard filter by has-comments                              | folded into 02 | 3                                    |
-| 13  | Cross-camp comments overview                                  | 06             | 1                                    |
+| #   | Step                                                              | Where          | Depends on                           |
+| --- | ----------------------------------------------------------------- | -------------- | ------------------------------------ |
+| 1   | Usable create / read / delete UI                                  | 01             | —                                    |
+| 2   | Enable feature toggle                                             | 01             | 1                                    |
+| 3   | Dashboard indicates activities with comments                      | 02             | 1                                    |
+| 4   | A place for orphan and camp-level comments                        | 02 (the panel) | 1                                    |
+| 5   | Comment threads                                                   | 03             | 1                                    |
+| 6   | Resolve / unresolve                                               | 03             | 5 (UI only; technically independent) |
+| 7   | Anchor to other entities / precise anchors, ~~re-anchor orphans~~ | 04             | 5                                    |
+| 8   | Personal notification bubble with read markers                    | 05             | 3 (supersedes its badge)             |
+| 9   | Mentions                                                          | 05             | a delivery channel                   |
+| 10  | Multi-anchor + reference in comment text                          | **dropped**    | —                                    |
+| 11  | Push notifications                                                | 05             | 8, 9                                 |
+| 12  | Dashboard filter by has-comments                                  | folded into 02 | 3                                    |
+| 13  | Cross-camp comments overview                                      | 06             | 1                                    |
 
 Two dependency edges people get wrong:
 
@@ -79,30 +79,50 @@ obstacle (`comments` is a hyperlink, not a scalar).
 
 **Step 4 (orphan and camp-level comments) — no separate view.** The phase 01 panel already derives
 its scope from the route, so it is activity-scoped on an activity page and **camp-scoped everywhere
-else**. That camp-scoped panel _is_ the place: grouped by activity in programme order, with buckets
-for camp-level comments and for orphans. One component instead of two, and camp-level creation and
-orphan handling come for free. Phases 3, 4 and 12 still land as **separate commits** — see phase 02.
+else**. That camp-scoped panel _is_ the place, with its buckets for camp-level comments and for
+orphans. One component instead of two, and camp-level creation and orphan handling come for free.
+Phases 3, 4 and 12 still land as **separate commits** — see phase 02.
 
-**One panel, two scopes.** Worth stating once because every later phase depends on it: the panel is
-unfiltered when opened from the dashboard or picasso (camp scope) and filtered to one activity when
-opened from an activity page. Phase 04 adds a third case inside activity scope — comments that keep
-their activity but lose their content-node anchor render inline, just above that activity's group,
-rather than in the orphan bucket.
+**Step 7's "re-anchor orphans" — dropped from step 7.** The step title asks for it; phase 04 builds
+only the automatic recovery that re-finds a mark whose text was cut and pasted, and leaves a genuinely
+de-anchored thread de-anchored. Every manual variant is a way for one person to change what somebody
+else's comment is about, which is what "comments are traceable" exists to prevent, and each needs an
+authorship rule and a targeting UI to do it safely. The feature already has an answer for a comment
+that no longer applies: resolve it. See phase 04.
 
-**Ordering: first appearance in the visible programme, never by `number`.** Comments group by
-activity; sections order by the activity's first still-visible schedule entry, comments within a
-section by `createTime`. `ScheduleEntry::getNumber()` looks like the key and is not — it is computed
-rather than a column, does not sort as a string, and does not encode a total order across categories
-(`1.1`, `1.a` and `1.i` can coexist on one day, and style `-` yields `''`).
+**One panel, two scopes — and camp scope is not "everything".** Worth stating once because every later
+phase depends on it: the panel is filtered to one activity when opened from an activity page, and
+camp-scoped when opened from the dashboard or picasso. Camp scope shows **camp-level comments and
+orphans only on desktop**, adding the per-activity comments only on mobile, where the panel is
+fullscreen and there is no context to sit next to anyway. Mobile has one more case: tapping a
+dashboard row's badge filters the panel to that activity **without navigating**, since closing a
+fullscreen panel onto a different page than the one you opened it from is disorienting. Desktop's
+badge navigates, because there the drawer lets you see the activity and its comments together.
 
-No comparator is needed: the schedule-entry list is already in programme order, so the position is
-just the index at which each activity first appears. That makes it naturally filter-correct — hiding
-an activity's first entry re-positions it by its next one, and hiding all of them drops it. Which in
-turn means **the panel must know the page's filter state and, on the picasso, its period**; it reads
-both from the route, the same way it reads camp and activity. Phase 02 adds
-`frontend/src/helpers/firstAppearanceByActivity.js`, generic enough for the material overview to
-reuse it; phase
-04 orders within an activity by anchor position.
+The rule behind it: **a comment's context is part of the comment**. "This is too long for the age
+group" is a fragment beside a timestamp and meaningful beside the activity. Desktop can show both, so
+it insists on it; a phone cannot, so it does not pretend. Using a flat list of a camp's comments as a
+to-do list or as a way to navigate the programme are real wants, and they become their own features
+rather than a side effect of leaving a filter off. Phase 06 is the first of them.
+
+Phase 04 adds a case inside activity scope — comments that keep their activity but lose their
+content-node anchor render inline, just above that activity's group, rather than in the orphan bucket.
+
+**Ordering: `createTime` ascending, unless the reader can see a better order.** Every list of comments,
+in every scope and on both viewports, reads oldest-first like a chat — so a reply follows what it replies to, and a comment you
+just posted lands directly above the composer you typed it in. The API already returns that order, so
+phases 01–03 contain no ordering code at all. The camp-scoped list is **flat**: no grouping, no
+buckets. Where a list mixes contexts — camp scope — each card carries a context label instead; where
+every comment shares one activity, the header says it once and the cards do not repeat it.
+
+Posting scrolls the list to its bottom, on desktop and mobile alike, while the composer stays sticky.
+
+An earlier draft ordered the camp list by first appearance in the visible programme, which dragged the
+dashboard's filter state and the picasso's period into the panel so the two could not disagree. Phase 02
+records what that deleted, and the one trap worth keeping from it: if anything ever does need programme
+order, **do not sort by `ScheduleEntry::getNumber()`** — it is computed rather than a column, does not
+sort as a string, and is not a total order across categories (`1.1`, `1.a` and `1.i` can coexist on one
+day; style `-` yields `''`). Read the index off the already-ordered schedule-entry list instead.
 
 ## Target datamodel
 
@@ -262,9 +282,11 @@ flags. Registering a new anchorable surface is one call; see
   comment. Those rules are enforced by the API; do not reimplement them in Vue. Note the gate is
   `isOutsider`, **not** `ScheduleEntry.vue`'s `disabled` — that one is `!isContributor` and would shut
   guests out. `campRoleMixin.isOutsider` is currently broken; phase 01 fixes it.
-- **The panel never blocks the page.** No scrim, no focus trap, no blocked scroll — users must be
-  able to read and scroll the commented content while the panel is open. That rules out `temporary`
-  drawers and default-configured bottom sheets.
+- **On desktop the panel never blocks the page.** No scrim, no focus trap, no blocked scroll — users
+  must be able to read and scroll the commented content while the panel is open, because that content
+  is what the comments are about. That rules out `temporary` drawers. **On mobile the opposite holds**:
+  the panel is a fullscreen dialog, because 360px cannot show a comment and its context at once, and
+  pretending otherwise costs three unverified Vuetify props to reveal a line and a half of the page.
 
 ## Translations
 

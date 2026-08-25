@@ -5,12 +5,12 @@ See [epic.md](epic.md) for the datamodel and decisions. Requires [01-usable-ui.m
 ## Goal
 
 A comment becomes discoverable without already knowing where it is. The dashboard shows which
-activities have comments, clicking that badge opens the comments panel scrolled to them, and a
-general toggle opens the same panel unfiltered — showing every comment in the camp, including
-camp-level ones and the **orphans that activity deletion already produces today and that are
-currently unreachable in the UI**. A filter narrows the dashboard to commented activities, and the
-filtered view is shareable by URL so a coach can send the planning team a link straight to their
-feedback.
+activities have comments, clicking that badge takes you to the activity with the panel open (or, on
+mobile, opens the panel filtered to it), and a general toggle opens the camp-scoped panel — which is
+where **camp-level comments** and the **orphans that activity deletion already produces today and
+that are currently unreachable in the UI** live. A filter narrows the dashboard to commented
+activities, and the filtered view is shareable by URL so a coach can send the planning team a link
+straight to their feedback.
 
 Only after this ships is the toggle worth turning on in `staging` and `prod`.
 
@@ -22,31 +22,87 @@ place is **the phase 01 panel**, not a new page. Phase 01 derives its scope from
 the panel is already:
 
 - **activity-scoped** on the activity page — filtered to that activity;
-- **camp-scoped** on the dashboard and (later) the picasso — unfiltered, showing everything in the
-  camp.
+- **camp-scoped** on the dashboard and (later) the picasso.
 
 That falls out of phase 01's design at no cost, and it is strictly better than a standalone page:
 one component, one set of behaviours, and camp-level comment creation and orphan handling come along
-for free instead of being reimplemented. It also answers the question phase 02 previously left open
-("should the camp page list all activity comments?") — yes, because that is simply what the
-unfiltered panel is.
+for free instead of being reimplemented.
+
+### What camp scope contains: not everything, and it depends on the viewport
+
+Phase 02 previously answered "should the camp panel list all the activity comments?" with "yes, that
+is simply what the unfiltered panel is". **That answer is wrong on desktop**, and the reason is worth
+writing down because it constrains later phases:
+
+> **A comment's context is part of the comment.** "This is too long for the age group" means nothing
+> next to a timestamp and an author; it means something next to the activity it is about. A flat list
+> of every comment in a camp reads as a pile of fragments.
+
+So:
+
+| viewport                 | camp scope shows                                                |
+| ------------------------ | --------------------------------------------------------------- |
+| **Desktop** (`mdAndUp`)  | camp-level comments and orphans **only** — no activity comments |
+| **Mobile** (`smAndDown`) | everything, one chronological list, in the fullscreen panel     |
+| **Mobile, badge tapped** | one activity's comments — see the badge under step 3            |
+
+Desktop can put the comment next to its context — so it insists on doing that, and activity comments
+are read on the activity page, where the panel is activity-scoped and the programme is on screen next
+to it. Mobile cannot: the panel is fullscreen (phase 01), the activity is not visible behind it
+anyway, and forcing a user to walk activity by activity on a phone to find feedback would be worse than
+a list. So mobile keeps the full list.
+
+**The uses that a full desktop list would have served are separate features, deliberately not this
+one.** Working through comments as a to-do list, or using them to navigate the camp, are real wants —
+they are just not "the comments panel with no filter applied", and they get designed as their own
+thing if and when they are asked for. Phase 06's cross-camp overview is the first of them.
+
+### Say so, in the panel
+
+A short list with no explanation looks like a bug, or like the camp has no feedback. So the **desktop**
+camp-scoped panel carries a small muted line above the list, saying that comments on individual
+activities live on those activities.
+
+Three details that make it worth its space rather than boilerplate:
+
+- **It carries the number**: "12 more comments are on individual activities." The panel already holds
+  the whole camp's collection, so the count is a `.length` over the comments `scopedComments` filtered
+  out — no extra request, no second predicate. From phase 03 it counts **open threads only**, the same
+  rule the dashboard badges follow, so an all-resolved camp does not advertise a backlog.
+- **It is hidden when the number is zero.** With nothing to explain, a standing notice is just noise —
+  and it would otherwise appear in every new camp, which is the worst possible first impression of the
+  feature.
+- **It is text, not a link.** The way to reach those comments is the dashboard badges, which are on the
+  page behind the drawer; a link here would either go to the page the user is already on, or invent a
+  second navigation path to maintain.
+
+Not shown on mobile, where the panel already lists everything, and not in activity scope, where the
+question does not arise.
 
 Consequences to build:
 
 - The dashboard needs a **general toggle button** in its toolbar, not only the per-row badges.
-- That toggle **carries a count too**, drawn inside the speech-bubble icon by
-  `CommentCountIcon`, the same component the per-row badges use. The number always answers
-  "how many comments will I see if I open the panel here": camp-wide on the dashboard and the
-  picasso, activity-scoped on an activity page. `scopedComments` is the single predicate deciding
-  that, so the toggle and the panel cannot disagree.
-- `CommentsList` needs **grouping** when `activity` is undefined: by activity in programme order,
-  plus a bucket for camp-level comments (`activity === null && orphanDescription === null`) and one
-  for orphans (`orphanDescription !== null`).
+- That toggle **carries a count**, drawn inside the speech-bubble icon by `CommentCountIcon`, the same
+  component the per-row badges use. The number answers "how many comments will I see if I open the
+  panel here" — which now means it is **viewport-dependent in camp scope**: on desktop it counts
+  camp-level and orphan comments, on mobile everything. `scopedComments` is the single predicate
+  deciding what the panel renders _and_ what the toggle counts, so they cannot disagree, and the
+  viewport belongs in that one predicate rather than in two components. Show the button at zero too —
+  an empty camp-level list is still where you go to write a camp-level comment.
+- `CommentsList` renders **one chronological list** in every scope. What changes with scope is only
+  which comments are in it. No grouping, no buckets, no ordering code.
+- **A card shows a context label only when the list mixes contexts** — that is, in camp scope. In
+  activity scope every comment shares one activity and the panel header already names it, so a label
+  on every card is repetition, not information; the same goes for the mobile badge-filtered list,
+  which _is_ activity scope. The one exception is an **orphan**, which always shows its
+  `orphanDescription`: "the activity this was about is gone" is a fact about the comment, not about
+  the list it happens to be in.
 - Creating a comment from the camp-scoped panel omits `activity` — the backend already allows it
-  (`activity` is nullable, only `camp` is required).
-- Phase 04 extends the same structure: comments that kept their activity but lost their content-node
-  anchor render inline, immediately above that activity's group, rather than in the orphan bucket.
-  Design the grouping with that slot in mind; do not build it yet.
+  (`activity` is nullable, only `camp` is required). On desktop this is now the panel's main job.
+  **Except under the mobile badge filter**, where the composer posts to that activity — see step 3.
+- Phase 04 needs nothing structural from this: a comment that kept its activity but lost its
+  content-node anchor is just a card that additionally quotes its `anchorText`, in its chronological
+  place like every other.
 
 ## Non-goals
 
@@ -54,7 +110,8 @@ Consequences to build:
 | --------------------------------------------------------------- | ----------------------------------------- |
 | Unread state — the badge means "has comments", not "has unread" | 05 (step 8 supersedes this badge)         |
 | Replies, resolve                                                | 03                                        |
-| Re-anchoring, de-anchored comments shown inline                 | 04                                        |
+| De-anchored comments shown inline above their activity          | 04                                        |
+| Any way to re-anchor or relocate a comment                      | never — see 04's "terminal"               |
 | A picasso toggle button                                         | when the picasso work happens             |
 | Cross-camp overview                                             | 06                                        |
 | Any comments UI for external (public-camp) users                | never — gated on `isOutsider` in 01       |
@@ -76,89 +133,76 @@ phase 01's code path is camp-scoped anyway, and it would cost a regeneration of 
 files for no functional gain. (See also the epic's follow-up on removing the now-unused _activity_
 subresource once the feature has shipped.)
 
-## Ordering — first appearance in the visible programme
+## Ordering — chronological, like a chat
 
-Comments group by activity; the activity **sections** are ordered by the start of the activity's
-**first still-visible schedule entry**, and comments within a section by `createTime`.
+**Every list of comments, in every scope and on every viewport, is `createTime` ascending.** That is
+what the API already returns (`Comment` has `order: ['createTime' => 'ASC']`), so this phase writes no
+ordering code at all — and neither do 01 and 03.
 
-**Do not sort by `scheduleEntry.number`.** Three reasons, in increasing severity:
+Phase 04 is the one exception, and it is a narrow one: where an anchored comment's text is on screen
+beside the panel, it orders those comments by their position in that document, falling back to
+`createTime` for everything else. The rule underneath both decisions is the same — **order by something
+the reader can see next to the panel; otherwise chronological** — which is exactly why programme order
+is rejected below and document order is not.
 
-1. `Activity` has no number at all — it is computed on `ScheduleEntry`
-   (`api/src/Entity/ScheduleEntry.php:339-357`, not an ORM column, so it cannot be `ORDER BY`ed
-   server-side either).
-2. It does not sort as a string: the day part is unpadded decimal (`'10.1' < '2.1'`) and the
-   suffix may be roman (`'ix' < 'v'`).
-3. **It does not encode a total order at all.** `getScheduleEntryNumber()` counts only within the
-   same `numberingStyle` (`ScheduleEntry.php:300-303`), so one day can legitimately contain `1.1`,
-   `1.a` and `1.i` all meaning "first of its kind". Categories with style `-` get `''`.
+Ascending rather than newest-first, for three reasons that reinforce each other:
 
-**And do not write a comparator either** — none is needed, which is the good news. An activity has
-many schedule entries and the dashboard shows all of them, so "the activity's position" is the
-position of its first one. But the schedule-entry list is already in programme order: the API sorts
-it (`Period.php:98-100`), the dashboard flattens periods in API order and `filteredScheduleEntries`
-(`Dashboard.vue:234-238`) preserves that order, and `Object.values` over `keyBy(..., '_meta.self')`
-is insertion-ordered because IRI keys are never integer-like.
+- a thread of feedback **reads** in the order it was written, the way a chat does — reversing it makes
+  a reply appear above the thing it replies to;
+- with the composer at the bottom, a comment you just posted appears **directly above the input you
+  typed it in**, which is the feedback that tells you it worked;
+- it matches phase 01 and phase 03, which are ascending already, so there is one rule rather than a
+  per-scope rule.
 
-So the ordering is just **index of first appearance** in that already-ordered list:
+**The camp-scoped list is flat, not grouped.** Each card carries its own context instead — the activity
+title, or nothing for a camp-level comment, or the deleted activity's title from `orphanDescription`
+for an orphan. That is the same information the buckets would have conveyed, in the place where it is
+actually needed: on the comment.
 
-```js
-// frontend/src/helpers/firstAppearanceByActivity.js
-// The function does not establish the order, it reads an index off a list the caller
-// already ordered — hence the parameter name rather than a warning in a comment.
-export function firstAppearanceByActivity(orderedScheduleEntries) {
-  const firstAppearance = new Map()
-  orderedScheduleEntries.forEach((scheduleEntry) => {
-    const uri = scheduleEntry.activity()._meta.self
-    if (!firstAppearance.has(uri)) firstAppearance.set(uri, firstAppearance.size)
-  })
-  return firstAppearance
-}
-```
+### What this deletes
 
-That is reusable beyond comments: the same Map orders **material items in programme order** in the
-material overview, which has the same "reference an activity, show it in programme sequence" problem.
-Keep it a pure function over a list so it has no idea what it is ordering for. It lives in
-`frontend/src/helpers/` rather than `common/`, because both consumers are frontend views — move it to
-`common/` only once `/print` actually needs it.
+An earlier draft ordered the camp list by **first appearance in the visible programme**: activity
+groups sorted by their first still-visible schedule entry, which forced the panel to reconstruct the
+dashboard's filter and the picasso's period from the route so its order could not disagree with the
+page behind it. All of it is gone:
 
-### The filter changes the order, so the panel must know about it
+- `firstAppearanceByActivity` and its spec — not written. If the material overview ever wants programme
+  ordering for material items, it writes it then, for itself.
+- The panel no longer reads `processRouteQuery` or `periodFromRoute`, computes no
+  `filteredScheduleEntries`, and needs no `context.activitiesWithComments`.
+- The camp-level and orphan **buckets** — replaced by the per-card context label in camp scope.
 
-This is the subtle part. If the user filters out the first day, an activity whose first schedule entry
-was on that day is now positioned by its _second_ entry — so activity sections can reorder, and an
-activity whose every entry is filtered out should not appear in the panel at all. Passing an
-unfiltered list would produce an order that silently disagrees with what the dashboard shows.
+**The panel also no longer filters its contents by the dashboard filter.** That rule existed because the
+_order_ depended on the filter; with a chronological order the only remaining argument was "the panel
+and the page should agree", and it does not survive contact with the actual UI: on mobile the panel is
+fullscreen, so there is no visible dashboard to disagree with, and on desktop the panel does not show
+activity comments at all. The toggle's count stays honest either way — it still answers "how many will
+I see if I open this", which is now simply all of them.
 
-Therefore the panel needs the **same filter state and the same period scope** as the page behind it.
-It gets both the way it already gets camp and activity — **from the route**:
+If anyone is ever tempted to order comments by the programme after all, the one trap worth keeping:
+**do not sort by `scheduleEntry.number`.** `Activity` has no number (it is computed on `ScheduleEntry`,
+`api/src/Entity/ScheduleEntry.php:339-357`, not an ORM column); it does not sort as a string (unpadded
+decimal days, roman suffixes); and it is not a total order at all — `getScheduleEntryNumber()` counts
+within one `numberingStyle`, so `1.1`, `1.a` and `1.i` can coexist on a day, and style `-` yields `''`.
+Read the index off the already-ordered schedule-entry list instead.
 
-- the dashboard and picasso filters are URL-persisted, so `processRouteQuery(this.$route.query)`
-  (`frontend/src/helpers/querySyncHelper.js:104`) reconstructs the filter the user set;
-- the picasso is period-scoped by its route path, and **`periodFromRoute` already exists**
-  (`router.js:764-769`) — restrict to that period's schedule entries when the route has a `periodId`.
+### Scrolling to the bottom after posting
 
-Then the panel computes its own `filteredScheduleEntries` with the existing
-`filterMatchScheduleEntry`, feeds them to `firstAppearanceByActivity`, and orders its groups. It already
-holds every comment in the camp, so the `context.activitiesWithComments` Set the `hasComments` clause
-needs costs nothing extra. hal-json-vuex caches the schedule entries the dashboard already fetched,
-so this is recomputation, not refetching.
+Ascending order puts a new comment at the end of the list, which is off-screen in any list long enough
+to scroll. So **after a successful POST and the collection reload, scroll the list to the bottom** —
+on desktop and on mobile alike.
 
-Two consequences worth being explicit about:
+Concretely, in `CommentsList`: `await` the post, `await this.$nextTick()` so the reloaded collection has
+rendered, then set the scroll container's `scrollTop` to its `scrollHeight`. It needs a `ref` on the
+panel's scrollable body; phase 01 already established that the body scrolls rather than the drawer
+growing, so the container exists.
 
-- **The panel respects the filter for content, not only for order.** If a coach filters the dashboard
-  to one category, the panel shows that category's comments. Anything else makes the badge counts and
-  the panel disagree. Camp-level and orphan comments have no schedule entry and are therefore never
-  filtered out — they always show.
-- **The toggle button's count has to respect it too**, or the number promises a different panel than
-  the one that opens. Both need the same answer to "which comments are visible here", so compute it
-  **once** rather than in each component: extend `scopedComments` to take the visible schedule
-  entries alongside the activity, and let the panel and the toggle call it with the same route-derived
-  arguments. Two independent predicates over the same question is how the number and the list drift
-  apart.
-- Keeping this route-derived means no page pushes state into `commentsState`, so the interleaving
-  problem phase 01 avoided stays avoided.
+The **composer stays sticky** at the bottom of the panel, so it is reachable at any scroll position and
+the scroll is about seeing your comment land, not about reaching the input.
 
-**Phase 01 needs none of this**: it is activity-scoped, so every comment shares one activity and the
-order degenerates to `createTime`, which the API already returns.
+Opening the panel does **not** scroll to the bottom: with a sticky composer there is nothing to reach,
+and starting at the oldest comment is the right reading order for feedback you have not read yet.
+Revisit only if real camps produce lists long enough that people complain about the trip.
 
 ## Frontend changes
 
@@ -178,10 +222,56 @@ every other cell is:
 <CountBadge v-if="!loadingEndpoints?.comments && commentCount" :count="commentCount" />
 ```
 
-Make the badge **clickable**: it opens the panel (`commentsState.open = true`) and scrolls that
-activity's group into view, highlighting it briefly — reuse whatever `focusComment`-style scroll and
-flash treatment phase 04 will formalise, or the plainest `scrollIntoView({ block: 'center' })` plus a
-CSS flash for now. Do not navigate; the point is to read the feedback without leaving the overview.
+Make the badge **clickable**, and this is the one place the two viewports genuinely diverge:
+
+- **Desktop — navigate to the activity and open the panel there** (`commentsState.open = true` before
+  the push; the singleton survives the route change). The desktop camp panel does not contain activity
+  comments, and the reason it does not is the same reason the badge navigates: the feedback is only
+  meaningful next to the activity it is about, and the drawer lets you see both.
+- **Mobile — do not navigate. Open the panel filtered to that activity.** Navigating would mean the
+  user opens the panel, closes it, and finds themselves on a different page than the one they were
+  looking at — because the mobile panel is fullscreen, so the route change happens entirely out of
+  sight. That is disorienting in a way the desktop drawer is not, and it is worth diverging over.
+
+The mobile filter is **one field and one line of wiring**, because camp scope filtered to a single
+activity is exactly activity scope:
+
+```js
+// commentsState.js — added by this phase
+activityFilter: null,               // an activity entity, set only by the dashboard badge
+export function openCommentsForActivity(activity) { … }   // sets both, in one action
+```
+
+```js
+// CommentsPanel.vue
+activity() {
+  return activityFromRoute(this.$route) ?? commentsState.activityFilter
+},
+```
+
+Everything downstream then works unchanged, because it already handles "the panel has an activity" —
+and that is not only about what is displayed. `CommentComposer` takes `activity` as a prop (phase 01),
+so **a comment written in the filtered panel is posted to that activity, not to the camp**, which is
+what someone who tapped that activity's badge means. The context labels drop away for the same reason.
+The filter is a **scope**, not a view filter: it decides what you write as well as what you read.
+Getting that backwards — a display-only filter over a camp-level composer — would let someone answer an
+activity's feedback and have the answer land nowhere near it.
+
+Three rules that keep it from becoming a mode:
+
+- **It lives exactly as long as one panel opening.** `CommentsPanel` watches `open` and clears
+  `activityFilter` when it goes false — a watcher rather than a `closeComments()` helper, because
+  `open` is also written directly by the dialog's `v-model` and every future close path would have to
+  remember the helper. It is cleared by `resetCommentsState()` too, so a camp change cannot strand it.
+- **The panel header names the activity**, or the user is looking at a filtered list with no
+  explanation of why it is short. This matters more here than on desktop: the fullscreen panel has
+  hidden the dashboard that would otherwise have supplied the context.
+- **No filter control in the UI.** Not editable, no dropdown, no chip: closing the panel and reopening
+  it from the toolbar toggle is how you get back to everything, and that is one tap. If a "show all"
+  affordance is wanted later it is one button calling `activityFilter = null`.
+
+Note the toggle button's count is unaffected — it still answers "what will I see if I open the panel
+from here", and the filter does not exist until a badge is tapped.
 
 **Keep the badge deliberately dumb.** It means "this activity has N comments". Step 8 changes the
 semantics to "N unread", and anything cleverer built now gets rewritten then.
@@ -195,10 +285,18 @@ demanding attention.
 
 Covered by the camp-scoped panel above. Concretely, in `CommentsList.vue`:
 
-- group by activity when `activity` is undefined, ordered by `firstAppearanceByActivity`;
-- a **camp comments** bucket and an **orphaned comments** bucket, the latter showing the deleted
-  activity's title from `orphanDescription` and a delete action for the comment's own author;
-- the composer creates camp-level comments when no activity group is targeted.
+- one chronological list of camp-level comments and orphans, with the deleted activity's title from
+  `orphanDescription` on each orphan and a delete action for the comment's own author. That list is the
+  whole desktop camp panel, and its camp-level comments need no label — they are what the list is;
+- **on mobile only**, the activity comments join the same list. Now the list mixes contexts, so every
+  card gets a label: the activity title, or an explicit camp-level one. Do not signal camp-level by the
+  _absence_ of a label in a mixed list — an unlabelled card reads as an oversight, not as a statement;
+- the composer creates camp-level comments — unless the mobile badge filter is set, in which case it
+  posts to that activity.
+
+Note this list is the **end of the line** for orphans: phase 04 deliberately does not
+add a way to move an orphan to a replacement activity. They are readable, deletable by their author,
+and — from phase 03 — resolvable. See phase 04's "De-anchored and orphaned threads are terminal".
 
 This is not really a feature request. Activity deletion has produced orphan rows since
 `ActivityRemoveProcessor` shipped, and there is no way to read or delete them. That is a
@@ -318,7 +416,7 @@ Land these as separate commits even though they share a phase file — the git h
 which roadmap step each change served:
 
 1. **`filterMatchScheduleEntry` context argument** — shared-helper signature change, reviewable alone.
-2. **Step 4** — camp-scoped panel: `firstAppearanceByActivity.js`, grouping, camp-level and orphan buckets,
+2. **Step 4** — camp-scoped panel: the chronological list, context labels, camp-level and orphan comments,
    dashboard toggle button.
 3. **Step 3** — camp-wide comment fetch, `CountBadge` on `ActivityRow`, click-to-open-and-scroll.
 4. **Step 12** — the `hasComments` filter, plus the `querySyncHelper` work (booleans,
@@ -333,11 +431,12 @@ then it orders by the unfiltered programme, which is correct because there is no
 frontend/src/views/camp/Dashboard.vue                              modified
 frontend/src/views/camp/CampProgram.vue                            modified  (step 12)
 frontend/src/components/dashboard/ActivityRow.vue                  modified
-frontend/src/components/comments/CommentsList.vue                  modified  (grouping)
+frontend/src/components/comments/CommentsList.vue                  modified  (labels, scroll-to-bottom)
 frontend/src/components/comments/CommentCountIcon.vue              new       (count inside the bubble)
 frontend/src/components/comments/scopedComments.js                 new       (which comments a scope shows)
 frontend/src/components/comments/CommentsToggleButton.vue          modified  (count + aria-label)
-frontend/src/components/comments/commentsState.js                  modified  (focus an activity group)
+frontend/src/components/comments/commentsState.js                  modified  (+activityFilter)
+frontend/src/components/comments/CommentsPanel.vue                 modified  (filter header, clear on close)
 frontend/src/components/program/ScheduleEntryFilters.vue           modified  (step 12)
 frontend/src/components/program/repairFilterConfig.js              modified  (step 12)
 frontend/src/components/print/config/DialogScheduleEntryFilter.vue modified  (step 12)
@@ -345,8 +444,6 @@ frontend/src/helpers/querySyncHelper.js                            modified  (st
 frontend/src/helpers/__tests__/querySyncHelper.spec.js             +filterAndQueryAreEqual cases
 common/helpers/filterMatchScheduleEntry.js                         modified  (context arg + clause)
 common/helpers/__tests__/filterMatchScheduleEntry.spec.js           modified
-frontend/src/helpers/firstAppearanceByActivity.js                   new
-frontend/src/helpers/__tests__/firstAppearanceByActivity.spec.js    new
 frontend/src/components/comments/__tests__/CommentsList.spec.js    modified
 frontend/src/locales/en.json, de.json                              +keys
 e2e/tests/5-cross-browser-tests/persistDashboardFilter.spec.ts     +cases
@@ -362,15 +459,20 @@ docker compose exec frontend npm run lint
 docker compose exec print npm run test        # common/helpers is shared with /print
 ```
 
-- `firstAppearanceByActivity.spec.js` — an activity with several schedule entries takes the
-  position of its first; **removing that first entry from the input list re-positions the activity by
-  its next one** (the filter case, and the whole reason this is not a comparator); an activity whose
-  every entry is absent does not appear in the Map at all; a duplicate activity is not double-counted.
-- `CommentsList.spec.js` — camp scope groups by activity in programme order; camp-level and orphan
-  buckets appear, are separated, and are **never** filtered out; activity scope still renders a flat
-  list.
+- `CommentsList.spec.js` — **desktop camp scope shows only camp-level comments and orphans**, with no
+  activity comments; **mobile camp scope** shows everything; both are one list in `createTime`
+  ascending order; activity scope is unchanged from phase 01. Plus: **posting scrolls the list to the
+  bottom**, asserted on the container's `scrollTop`.
+- Context labels: present on every card in the mobile camp list, **absent in activity scope and in the
+  mobile badge-filtered list**, and present on an orphan in every scope that shows one.
+- The desktop hint line: present with the right count when activity comments exist, **absent at zero**,
+  and absent on mobile and in activity scope.
+- With `activityFilter` set, the composer posts `activity` — not a camp-level comment.
 - `ActivityRow.spec.js` — badge appears with a count, absent at zero, skeleton while
-  `loadingEndpoints.comments` is true, and clicking it opens the panel.
+  `loadingEndpoints.comments` is true; **on desktop clicking it navigates and opens the panel**, **on
+  mobile it opens the panel with `activityFilter` set and does not navigate**.
+- `CommentsPanel.spec.js` — with `activityFilter` set the panel renders that activity's comments and
+  names it in the header; **closing the panel clears the filter**, so the next open is unfiltered.
 - `filterMatchScheduleEntry.spec.js` — the new clause passes when `hasComments` is absent (the print
   case), and passes/fails correctly with a `context.activitiesWithComments` Set. Also assert the
   helper still behaves when called with **two** arguments, which is how most call sites invoke it.
@@ -387,8 +489,7 @@ that looks right until you reload, so a text-only assertion would pass against b
 **Snapshots:** none. No serialization group changes in this phase.
 
 **`common/` is shared with `/print`.** Changing `filterMatchScheduleEntry.js` there means running the
-`print` checks too. `firstAppearanceByActivity.js` is deliberately not in `common/`, so it needs no
-`print` run.
+`print` checks too — it is the only file this phase touches outside `frontend/`.
 
 ## Verification
 
@@ -396,33 +497,40 @@ that looks right until you reload, so a text-only assertion would pass against b
    activity that has a comment (to produce an orphan).
 2. Open the dashboard. Exactly the two commented activities carry a count badge with the right
    counts. Reload throttled and confirm the badge cell shows a skeleton, not a flash of zero.
-3. Click the general comments toggle. The panel opens **unfiltered**: every camp comment, grouped by
-   activity in programme order, plus the camp-level bucket and the orphan bucket (labelled with the
-   deleted activity's title).
-4. Add a camp-level comment from the panel. It lands in the camp bucket and on no activity.
+3. **On desktop**, click the general comments toggle. The panel shows the camp-level comments and the
+   orphan (labelled with the deleted activity's title), oldest first — and **no activity comments at
+   all**, but a line above the list saying how many there are and where they live. Resolve every
+   activity comment (phase 03) and reopen the panel: the line is gone.
+4. Add a camp-level comment from the panel. It appears **at the bottom, directly above the composer**,
+   and the list has scrolled to it. Repeat on mobile with a list long enough to scroll.
 5. Delete the orphan (as its author). It disappears.
-6. Click an activity's count badge. The panel opens scrolled to that activity's group, briefly
-   highlighted. You did **not** navigate away from the dashboard.
-7. Click through to the activity page. The same panel now shows only that activity's comments.
-8. Check a camp whose categories use different numbering styles, and one using style `-` (blank
-   numbers). The panel's activity order matches the dashboard's row order exactly.
-9. **Find an activity with schedule entries on two different days**, and comment on it. Filter the
-   dashboard by category so that its _first_ entry is hidden but a later one is not. The panel's
-   activity order still matches the dashboard's remaining row order — this is the reordering case
-   `firstAppearanceByActivity` exists for.
-10. Filter so that **every** schedule entry of a commented activity is hidden. That activity's group
-    disappears from the panel, while the camp-level and orphan buckets stay.
-11. Toggle the "has comments" filter. Only the two rows remain and the filtered-count indicator
+6. **On desktop**, click an activity's count badge. You land on the activity page with the panel open
+   on that activity's comments.
+7. **On mobile** (narrow the viewport), click the same badge. The panel opens **fullscreen, filtered to
+   that activity**, and the header names it. Write a comment there: it lands **on that activity**, not
+   on the camp — confirm it appears on the activity page afterwards. You are still on the dashboard:
+   close the panel and the dashboard is exactly where you left it, which is the whole reason mobile does
+   not navigate. Open the panel again from the toolbar toggle: it is unfiltered, and the composer is
+   back to camp-level.
+8. **On mobile**, open the panel from the toolbar toggle. It lists every comment in the camp as one
+   chronological list, each card naming the activity it belongs to, with camp-level and orphaned ones
+   interleaved by time and labelled as such. Tap a dashboard badge instead: that list is one activity's
+   comments and the labels are gone, because the header says it once.
+9. **On mobile**, filter the dashboard by category and open the panel. Its contents are **unchanged** —
+   the panel deliberately does not follow the dashboard filter — and the toggle's count matches what
+   the panel shows.
+10. Toggle the "has comments" filter. Only the two rows remain and the filtered-count indicator
     updates. **Reload — the filter survives.** Copy the URL into a fresh browser profile logged in as
-    another collaborator and confirm they see the same filtered view **and the same panel contents**.
-12. Open the picasso with the same filter set. The commented entries stay normal, the rest are greyed
-    out and undraggable. **This should require no picasso code.** Open the panel there and confirm it
+    another collaborator and confirm they see the same filtered view **and, on mobile, the same panel
+    contents**.
+11. Open the picasso with the same filter set. The commented entries stay normal, the rest are greyed
+    out and undraggable. **This should require no picasso code.** Open the panel there: on mobile it
     shows only the displayed period's activities.
-13. Open the print configurator and any print config's filter dialog. There is **no** "has comments"
+12. Open the print configurator and any print config's filter dialog. There is **no** "has comments"
     chip. Generate a PDF with another filter set — output unchanged from before this phase.
-14. Save a print config with filters, reload the page, and reopen it. The filters survive — this is
+13. Save a print config with filters, reload the page, and reopen it. The filters survive — this is
     the JSON round-trip the `context` argument protects.
-15. With `VITE_FEATURE_COMMENTS=false`: no badge, no toggle button, no filter chip, and the panel
+14. With `VITE_FEATURE_COMMENTS=false`: no badge, no toggle button, no filter chip, and the panel
     never appears.
 
 ## Open questions
@@ -431,17 +539,19 @@ None — see the decisions above.
 
 ## Done criteria
 
-- [ ] The dashboard has a comments toggle that opens the panel **unfiltered** for the whole camp.
+- [ ] The dashboard has a comments toggle that opens the camp-scoped panel.
 - [ ] Camp-level and orphaned comments are visible, creatable and deletable from that panel. No
       standalone camp comments page was created.
-- [ ] Activity sections are ordered by first appearance in the **visible** programme, so they match
-      dashboard row order even when a filter hides an activity's first schedule entry, and even for
-      categories with numbering style `-`. Not by the `number` string, and not by a comparator.
-- [ ] The panel reconstructs the filter and the picasso's period from the route, so its contents and
-      order never disagree with the page behind it. Camp-level and orphan comments are never filtered
-      out.
-- [ ] `firstAppearanceByActivity` is a pure function over an ordered list, reusable for the material
-      overview later.
+- [ ] Desktop camp scope contains **no activity comments**; the badge navigates to the activity instead,
+      and a hint line says how many comments are on activities — hidden when there are none.
+- [ ] Mobile camp scope contains everything, and the badge opens the panel filtered to one activity
+      **without navigating**, with the composer posting to that activity. The filter is cleared when
+      the panel closes and on camp change.
+- [ ] Every list is `createTime` ascending, in every scope and on both viewports — no ordering code in
+      this phase, no grouping, no buckets. Cards carry a context label only where the list mixes
+      contexts, plus always on an orphan.
+- [ ] Posting a comment scrolls the list to the bottom, on desktop and on mobile, with the composer
+      sticky.
 - [ ] Dashboard rows show a comment count badge that opens and scrolls the panel when clicked.
 - [ ] The count sits inside the speech-bubble icon, shared by the row badges and the toggle button,
       legible in the toggle's active (filled) state and present in its aria-label.

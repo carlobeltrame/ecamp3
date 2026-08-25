@@ -7,9 +7,9 @@ phase assumes.
 
 Anyone with access to a camp — including guests — opens an activity, clicks a comments button in the
 activity toolbar, and gets a right-hand panel listing every comment on that activity with author,
-avatar and timestamp. They can write a rich-text comment and delete their own. The page stays
-scrollable and interactive while the panel is open. On mobile the panel is a non-blocking bottom
-sheet. Everything is translated and tested. Then the toggle is switched on for the `dev` deployment.
+avatar and timestamp. They can write a rich-text comment and delete their own. On desktop the page
+stays scrollable and interactive while the panel is open; on mobile the panel is fullscreen.
+Everything is translated and tested. Then the toggle is switched on for the `dev` deployment.
 
 Today none of that works: the composer is permanently disabled, the whole activity page waits for
 the comments request, and every string is hardcoded German.
@@ -204,11 +204,17 @@ Data and states: fetches the collection for the given camp, filters to the activ
 skeletons, empty state, ordering, the `v-for` of cards, and the composer. The main testable unit.
 Props: `camp`, `activity` (nullable) — entities, passed down by the panel. No events.
 
-**Ordering here is just `createTime` ascending**, which the API already returns
-(`Comment` has `order: ['createTime' => 'ASC']`). This phase is activity-scoped, so every comment
-shares one activity and there is nothing to order across. Phase 02 introduces camp scope and with it
-programme ordering — do not reach for it now, and in particular do not sort by
-`scheduleEntry.number`, which is not a total order. See phase 02's Ordering section.
+**Ordering is `createTime` ascending**, which the API already returns (`Comment` has
+`order: ['createTime' => 'ASC']`). Oldest-first, so a conversation reads in the order it was written
+and a comment you just posted lands directly above the composer. Phase 02 adds the scroll-to-bottom
+that goes with it.
+
+This is the **default and the fallback in every scope**, and phases 01–03 write no ordering code at
+all. The single thing that ever overrides it is phase 04's document order for anchored comments, and
+the rule that lets it is worth stating once here so it is not mistaken for a licence to sort:
+**the panel may order by something the reader can see next to it, and is chronological otherwise.**
+An anchored comment's text is on screen beside the panel; the programme is not, which is why programme
+ordering was considered and dropped in phase 02.
 
 **`frontend/src/components/comments/CommentCard.vue`** (~90 lines)
 
@@ -353,19 +359,22 @@ A drawer that pushes `v-main` also makes the old `width > 1360` flex-column bran
 Vuetify handles the layout offset, with no measuring, which is why the fork's grow-every-frame loop
 cannot happen here.
 
-**Mobile (`smAndDown`).** A 320px drawer on a 360px viewport is a full-screen overlay whatever you do,
-and `v-bottom-sheet` is a `v-dialog` variant that blocks scroll and traps focus by default — nothing
-in the repo currently overrides that. Use a bottom sheet capped at ~60vh with the blocking turned
-off:
+**Mobile (`smAndDown`) — fullscreen.** A 320px drawer on a 360px viewport is a full-screen overlay
+whatever you do, so stop pretending otherwise and make it one:
 
 ```vue
-<v-bottom-sheet v-model="commentsState.open" :scrim="false" scroll-strategy="none" :retain-focus="false">
+<v-dialog v-model="commentsState.open" fullscreen transition="dialog-bottom-transition">
 ```
 
-The top ~40% of the page stays visible, scrollable and tappable. **Verify these three props behave as
-intended in 3.12.10 — this is the one part of the plan with no in-repo precedent.** If they do not, the
-fallback is a full-width right drawer with `:mobile="false"`, accepting that a phone cannot show both
-at once.
+`DialogForm.vue:4` already does `:fullscreen="$vuetify.display.xs"`, so this is the house pattern
+rather than a new one, and a modal dialog's default scroll-lock and focus-trap are correct here instead
+of something to fight.
+
+An earlier draft used a non-blocking `v-bottom-sheet` capped at ~60vh, on the theory that the page
+should stay visible behind it. Dropped: 40% of a phone screen shows a line and a half of the activity,
+which is not enough context to be worth the cost — three Vuetify props with no in-repo precedent, whose
+behaviour in 3.12.10 the plan had to flag as unverified. Phase 02 makes the same call at the data level
+for the same reason: a phone cannot show a comment next to what it is about, so it does not try.
 
 ### Never block page render
 
