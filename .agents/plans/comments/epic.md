@@ -100,7 +100,8 @@ just the index at which each activity first appears. That makes it naturally fil
 an activity's first entry re-positions it by its next one, and hiding all of them drops it. Which in
 turn means **the panel must know the page's filter state and, on the picasso, its period**; it reads
 both from the route, the same way it reads camp and activity. Phase 02 adds
-`common/helpers/programOrder.js`, deliberately generic so the material overview can reuse it; phase
+`frontend/src/helpers/firstAppearanceByActivity.js`, generic enough for the material overview to
+reuse it; phase
 04 orders within an activity by anchor position.
 
 ## Target datamodel

@@ -34,6 +34,11 @@ unfiltered panel is.
 Consequences to build:
 
 - The dashboard needs a **general toggle button** in its toolbar, not only the per-row badges.
+- That toggle **carries a count too**, drawn inside the speech-bubble icon by
+  `CommentCountIcon`, the same component the per-row badges use. The number always answers
+  "how many comments will I see if I open the panel here": camp-wide on the dashboard and the
+  picasso, activity-scoped on an activity page. `scopedComments` is the single predicate deciding
+  that, so the toggle and the panel cannot disagree.
 - `CommentsList` needs **grouping** when `activity` is undefined: by activity in programme order,
   plus a bucket for camp-level comments (`activity === null && orphanDescription === null`) and one
   for orphans (`orphanDescription !== null`).
@@ -97,22 +102,24 @@ is insertion-ordered because IRI keys are never integer-like.
 So the ordering is just **index of first appearance** in that already-ordered list:
 
 ```js
-// common/helpers/programOrder.js
-// Given schedule entries already in programme order — optionally filtered — return a Map
-// from activity IRI to its position, based on where the activity first appears.
-export function activityProgramOrder(scheduleEntries) {
-  const order = new Map()
-  scheduleEntries.forEach((entry) => {
-    const uri = entry.activity()._meta.self
-    if (!order.has(uri)) order.set(uri, order.size)
+// frontend/src/helpers/firstAppearanceByActivity.js
+// The function does not establish the order, it reads an index off a list the caller
+// already ordered — hence the parameter name rather than a warning in a comment.
+export function firstAppearanceByActivity(orderedScheduleEntries) {
+  const firstAppearance = new Map()
+  orderedScheduleEntries.forEach((scheduleEntry) => {
+    const uri = scheduleEntry.activity()._meta.self
+    if (!firstAppearance.has(uri)) firstAppearance.set(uri, firstAppearance.size)
   })
-  return order
+  return firstAppearance
 }
 ```
 
-That is deliberately reusable beyond comments: the same Map orders **material items in programme
-order** in the material overview, which has the same "reference an activity, show it in programme
-sequence" problem. Keep it a pure function over a list so it has no idea what it is ordering for.
+That is reusable beyond comments: the same Map orders **material items in programme order** in the
+material overview, which has the same "reference an activity, show it in programme sequence" problem.
+Keep it a pure function over a list so it has no idea what it is ordering for. It lives in
+`frontend/src/helpers/` rather than `common/`, because both consumers are frontend views — move it to
+`common/` only once `/print` actually needs it.
 
 ### The filter changes the order, so the panel must know about it
 
@@ -130,7 +137,7 @@ It gets both the way it already gets camp and activity — **from the route**:
   (`router.js:764-769`) — restrict to that period's schedule entries when the route has a `periodId`.
 
 Then the panel computes its own `filteredScheduleEntries` with the existing
-`filterMatchScheduleEntry`, feeds them to `activityProgramOrder`, and orders its groups. It already
+`filterMatchScheduleEntry`, feeds them to `firstAppearanceByActivity`, and orders its groups. It already
 holds every comment in the camp, so the `context.activitiesWithComments` Set the `hasComments` clause
 needs costs nothing extra. hal-json-vuex caches the schedule entries the dashboard already fetched,
 so this is recomputation, not refetching.
@@ -141,6 +148,12 @@ Two consequences worth being explicit about:
   to one category, the panel shows that category's comments. Anything else makes the badge counts and
   the panel disagree. Camp-level and orphan comments have no schedule entry and are therefore never
   filtered out — they always show.
+- **The toggle button's count has to respect it too**, or the number promises a different panel than
+  the one that opens. Both need the same answer to "which comments are visible here", so compute it
+  **once** rather than in each component: extend `scopedComments` to take the visible schedule
+  entries alongside the activity, and let the panel and the toggle call it with the same route-derived
+  arguments. Two independent predicates over the same question is how the number and the list drift
+  apart.
 - Keeping this route-derived means no page pushes state into `commentsState`, so the interleaving
   problem phase 01 avoided stays avoided.
 
@@ -182,7 +195,7 @@ demanding attention.
 
 Covered by the camp-scoped panel above. Concretely, in `CommentsList.vue`:
 
-- group by activity when `activity` is undefined, ordered by `activityProgramOrder`;
+- group by activity when `activity` is undefined, ordered by `firstAppearanceByActivity`;
 - a **camp comments** bucket and an **orphaned comments** bucket, the latter showing the deleted
   activity's title from `orphanDescription` and a delete action for the comment's own author;
 - the composer creates camp-level comments when no activity group is targeted.
@@ -305,7 +318,7 @@ Land these as separate commits even though they share a phase file — the git h
 which roadmap step each change served:
 
 1. **`filterMatchScheduleEntry` context argument** — shared-helper signature change, reviewable alone.
-2. **Step 4** — camp-scoped panel: `programOrder.js`, grouping, camp-level and orphan buckets,
+2. **Step 4** — camp-scoped panel: `firstAppearanceByActivity.js`, grouping, camp-level and orphan buckets,
    dashboard toggle button.
 3. **Step 3** — camp-wide comment fetch, `CountBadge` on `ActivityRow`, click-to-open-and-scroll.
 4. **Step 12** — the `hasComments` filter, plus the `querySyncHelper` work (booleans,
@@ -321,6 +334,9 @@ frontend/src/views/camp/Dashboard.vue                              modified
 frontend/src/views/camp/CampProgram.vue                            modified  (step 12)
 frontend/src/components/dashboard/ActivityRow.vue                  modified
 frontend/src/components/comments/CommentsList.vue                  modified  (grouping)
+frontend/src/components/comments/CommentCountIcon.vue              new       (count inside the bubble)
+frontend/src/components/comments/scopedComments.js                 new       (which comments a scope shows)
+frontend/src/components/comments/CommentsToggleButton.vue          modified  (count + aria-label)
 frontend/src/components/comments/commentsState.js                  modified  (focus an activity group)
 frontend/src/components/program/ScheduleEntryFilters.vue           modified  (step 12)
 frontend/src/components/program/repairFilterConfig.js              modified  (step 12)
@@ -329,8 +345,8 @@ frontend/src/helpers/querySyncHelper.js                            modified  (st
 frontend/src/helpers/__tests__/querySyncHelper.spec.js             +filterAndQueryAreEqual cases
 common/helpers/filterMatchScheduleEntry.js                         modified  (context arg + clause)
 common/helpers/__tests__/filterMatchScheduleEntry.spec.js           modified
-common/helpers/programOrder.js                                     new       (activityProgramOrder)
-common/helpers/__tests__/programOrder.spec.js                      new
+frontend/src/helpers/firstAppearanceByActivity.js                   new
+frontend/src/helpers/__tests__/firstAppearanceByActivity.spec.js    new
 frontend/src/components/comments/__tests__/CommentsList.spec.js    modified
 frontend/src/locales/en.json, de.json                              +keys
 e2e/tests/5-cross-browser-tests/persistDashboardFilter.spec.ts     +cases
@@ -346,7 +362,7 @@ docker compose exec frontend npm run lint
 docker compose exec print npm run test        # common/helpers is shared with /print
 ```
 
-- `programOrder.spec.js` — `activityProgramOrder`: an activity with several schedule entries takes the
+- `firstAppearanceByActivity.spec.js` — an activity with several schedule entries takes the
   position of its first; **removing that first entry from the input list re-positions the activity by
   its next one** (the filter case, and the whole reason this is not a comparator); an activity whose
   every entry is absent does not appear in the Map at all; a duplicate activity is not double-counted.
@@ -370,8 +386,9 @@ that looks right until you reload, so a text-only assertion would pass against b
 
 **Snapshots:** none. No serialization group changes in this phase.
 
-**`common/` is shared with `/print`.** Changing `filterMatchScheduleEntry.js` or adding a helper
-there means running the `print` checks too.
+**`common/` is shared with `/print`.** Changing `filterMatchScheduleEntry.js` there means running the
+`print` checks too. `firstAppearanceByActivity.js` is deliberately not in `common/`, so it needs no
+`print` run.
 
 ## Verification
 
@@ -392,7 +409,7 @@ there means running the `print` checks too.
 9. **Find an activity with schedule entries on two different days**, and comment on it. Filter the
    dashboard by category so that its _first_ entry is hidden but a later one is not. The panel's
    activity order still matches the dashboard's remaining row order — this is the reordering case
-   `activityProgramOrder` exists for.
+   `firstAppearanceByActivity` exists for.
 10. Filter so that **every** schedule entry of a commented activity is hidden. That activity's group
     disappears from the panel, while the camp-level and orphan buckets stay.
 11. Toggle the "has comments" filter. Only the two rows remain and the filtered-count indicator
@@ -423,9 +440,13 @@ None — see the decisions above.
 - [ ] The panel reconstructs the filter and the picasso's period from the route, so its contents and
       order never disagree with the page behind it. Camp-level and orphan comments are never filtered
       out.
-- [ ] `activityProgramOrder` is a pure function over an ordered list, reusable for the material
+- [ ] `firstAppearanceByActivity` is a pure function over an ordered list, reusable for the material
       overview later.
 - [ ] Dashboard rows show a comment count badge that opens and scrolls the panel when clicked.
+- [ ] The count sits inside the speech-bubble icon, shared by the row badges and the toggle button,
+      legible in the toggle's active (filled) state and present in its aria-label.
+- [ ] The toggle's count equals the number of comments the panel shows in the current scope, filter
+      included.
 - [ ] No per-activity comment requests fire — the count comes from one camp-wide fetch.
 - [ ] The "has comments" filter works on the dashboard and, with no extra code, on the picasso.
 - [ ] The filter is absent from every print config, via the one-line `hide-comments-filter`.
