@@ -23,6 +23,9 @@ The vision discussion in #828 added two wants that the panel deliberately does n
 - **K** — "camp managers and J+S coaches need to be able to list all comments and to be able to filter
   by various criteria (resolved, period, detached)".
 
+This view is also the reason phase 02's "has comments" dashboard filter (step 12) is deferred: the
+"todo list in my camp" need gets this view instead of a filter chip.
+
 Both are the same list as the cross-camp one, narrowed to one camp. So build **one view with a camp
 filter**, reachable two ways: the top-level route (all camps) and an in-camp route
 (`/camps/:campId/:campShortTitle/comments`, camp filter preset and hidden), linked from the camp

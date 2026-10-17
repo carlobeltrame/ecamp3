@@ -34,20 +34,23 @@ production week generates "nobody replied to me" instead of usage.
 **On `comments-frontend-2`, not on `devel`** (6 commits, dated 2026-08-02, i.e. written _before_ the core
 team rework that landed on `devel`):
 
-| commit      | content                                               | what to do with it                                           |
-| ----------- | ----------------------------------------------------- | ------------------------------------------------------------ |
-| `f56cea710` | `filterMatchScheduleEntry(…, context)` third argument | **port** — first commit of step 12                           |
-| `399155c00` | group the camp panel by activity, `programOrder.js`   | **drop** — superseded by `c61b4e8cb` and then `fbe2d9ff9`    |
-| `4f7efee33` | comment count on dashboard rows                       | **drop** — superseded by `911f2e7d9` / `d5ab92b7d`           |
-| `f4373179a` | `querySyncHelper`: booleans, `filterAndQueryAreEqual` | **port** — step 12                                           |
-| `bd1bad55b` | "with comments" filter on dashboard and picasso       | **port**, rebased onto `devel`'s `Dashboard.vue` comment Map |
-| `20bd291c4` | make the panel follow the dashboard filter and period | **drop** — contradicts phase 02's "panel ignores the filter" |
+| commit      | content                                               | what to do with it                                             |
+| ----------- | ----------------------------------------------------- | -------------------------------------------------------------- |
+| `f56cea710` | `filterMatchScheduleEntry(…, context)` third argument | **kept** — separate PR, branch `filter-context-and-query-sync` |
+| `399155c00` | group the camp panel by activity, `programOrder.js`   | **drop** — superseded by `c61b4e8cb` and then `fbe2d9ff9`      |
+| `4f7efee33` | comment count on dashboard rows                       | **drop** — superseded by `911f2e7d9` / `d5ab92b7d`             |
+| `f4373179a` | `querySyncHelper`: booleans, `filterAndQueryAreEqual` | **kept** — same separate PR                                    |
+| `bd1bad55b` | "with comments" filter on dashboard and picasso       | **not now** — step 12 is deferred, see below                   |
+| `20bd291c4` | make the panel follow the dashboard filter and period | **drop** — contradicts phase 02's "panel ignores the filter"   |
 
-So the next branch is: rebase `f56cea710`, `f4373179a` and `bd1bad55b` onto `devel` (the dashboard
-already builds a comment-count `Map` per activity, so the `activitiesWithComments` context can be derived
-from it instead of from the panel), and finish phase 02 with that.
+The two kept commits are a cleanup and a bug fix that stand on their own, without any comments code:
+the `context` argument keeps derived data out of the JSON-serialised `filter`, and
+`filterAndQueryAreEqual` no longer ignores filter keys outside its hard-coded list. They are rebased
+onto `devel` on `filter-context-and-query-sync` for their own PR. `comments-frontend-2` can be deleted once that PR
+is merged; `bd1bad55b` stays reachable through it until then, in case step 12 comes back.
 
-**Open, in roadmap order:** step 2's rollout (dev, then staging/prod after step 12), step 12, phase 03
+**Open, in roadmap order:** step 2's rollout (dev, then staging and prod — no longer waiting for step
+12), the `filter-context-and-query-sync` PR, phase 03
 (threads, resolve, plus the mobile filters from the issue), the context-snapshot change (see "Context
 snapshots" below), phase 04, phase 06 (now including the in-camp overview), phase 05.
 
@@ -107,14 +110,14 @@ qualify for federal subsidies. That audience drives two rules that run against e
 | File                                                   | Roadmap steps  | Backend work?                             |
 | ------------------------------------------------------ | -------------- | ----------------------------------------- |
 | [01-usable-ui.md](01-usable-ui.md)                     | 1, 2           | one-line security change                  |
-| [02-finding-comments.md](02-finding-comments.md)       | 3, 4, 12       | none                                      |
+| [02-finding-comments.md](02-finding-comments.md)       | 3, 4, ~~12~~   | none                                      |
 | [03-conversations.md](03-conversations.md)             | 5, 6           | migration + first PATCH operation         |
 | [04-inline-anchoring.md](04-inline-anchoring.md)       | 7              | migration + purifier + prototype-copy fix |
 | [05-notifications.md](05-notifications.md)             | 8, 9, 11       | large; **not planned yet, deliberately**  |
 | [06-cross-camp-overview.md](06-cross-camp-overview.md) | 13, vision J/K | none                                      |
 
-Phase status: 01 done except the `dev` rollout; 02 steps 3 and 4 done, step 12 partly on
-`comments-frontend-2`; 03–06 not started. See "Status" above.
+Phase status: 01 done except the `dev` rollout; 02 steps 3 and 4 done, step 12 deferred; 03–06 not
+started. See "Status" above.
 
 ## Roadmap
 
@@ -133,7 +136,7 @@ The order comes from the issue and is fixed. "Where" says which phase file owns 
 | 9   | Mentions                                                          | 05             | a delivery channel                   |
 | 10  | Multi-anchor + reference in comment text                          | **dropped**    | —                                    |
 | 11  | Push notifications                                                | 05             | 8, 9                                 |
-| 12  | Dashboard filter by has-comments                                  | folded into 02 | 3                                    |
+| 12  | Dashboard filter by has-comments                                  | **deferred**   | 3                                    |
 | 13  | Cross-camp comments overview                                      | 06             | 1                                    |
 
 Two dependency edges people get wrong:
@@ -152,10 +155,12 @@ N+1 risk in every read path, forever, for something nobody has requested. If it 
 one migration plus one `INSERT … SELECT` — every comment has at most one anchor today, so the
 backfill is unambiguous. Decide this _before_ step 7, not during.
 
-**Step 12 (dashboard filter) — folded into phase 02.** Not obsoleted by step 3 (a badge is not a
-filter). The filter widget is shared by the dashboard, the picasso and the print configs, but that
-sharing makes it _cheaper_, not more expensive — see phase 02 for the measured cost and the one real
-obstacle (`comments` is a hyperlink, not a scalar).
+**Step 12 (dashboard filter) — deferred (decided 2026-10-17).** The need behind it — a coach's
+"todo list in my camp" — gets its own view later: phase 06's in-camp overview, with filters by
+responsibility, period, detached and resolved state. A "has comments" chip on the dashboard would be a
+weaker second answer to the same need. The design stays recorded in phase 02 in case it comes back; the
+generic parts it needed (the `context` argument on `filterMatchScheduleEntry`, boolean URL params and
+the `filterAndQueryAreEqual` fix) ship anyway as a separate cleanup PR.
 
 **Step 4 (orphan and camp-level comments) — no separate view.** The phase 01 panel already derives
 its scope from the route, so it is activity-scoped on an activity page and **camp-scoped everywhere
