@@ -22,9 +22,11 @@ Only after this ships is the toggle worth turning on in `staging` and `prod`.
   **bottom** of the list, below the comments (`b15207be7`), not above it; detached comments got a more
   prominent treatment on the card (`29170cd85`).
 - **Step 12: deferred.** The "todo list in my camp" need it served will get its own view later
-  (phase 06's in-camp overview). Its two generic preparatory commits — the `context` argument and the
-  `querySyncHelper` work — ship on their own as a cleanup PR (branch `filter-context-and-query-sync`). The filter itself
-  (`bd1bad55b` on `comments-frontend-2`) is not merged. The step 12 section below is kept as the design
+  (phase 06's in-camp overview). The `context` argument is already on `devel` (`baa8037be`), and so is
+  the commented-activity filter clause in `filterMatchScheduleEntry` — which is **to be removed**, with
+  its tests, since nothing uses it now. The `filterAndQueryAreEqual` fix ships on its own as a cleanup
+  PR (branch `filter-context-and-query-sync`), without boolean URL params. The filter UI itself (`bd1bad55b` on
+  `comments-frontend-2`) is not merged. The step 12 section below is kept as the design
   record; if it is ever revived, build `context.activitiesWithComments` from the comment-count `Map` that
   `Dashboard.vue` already holds, not from the panel.
 - **Rollout: open.** `dev` first (phase 01), then `staging` and `prod`. With step 12 deferred, phase 02
@@ -320,9 +322,10 @@ data-loss-shaped bug, and the reason this phase should not slip behind 03.
 
 ### Step 12 — dashboard filter, and URL persistence
 
-> **Deferred.** Not being built for now — see the status above. Kept as the design record. The parts
-> that are not specific to comments — the `context` argument and the `querySyncHelper` booleans and
-> `filterAndQueryAreEqual` fix — are shipping separately.
+> **Deferred.** Not being built for now — see the status above. Kept as the design record. Of the
+> parts below, only the `context` argument and the `filterAndQueryAreEqual` fix are kept; the
+> `hasComments` clause and the boolean URL params are not built (and the clause is removed from
+> `devel`).
 
 The filter widget is shared, and that makes this **cheaper**, not more expensive. Two facts do the
 work:
@@ -443,8 +446,9 @@ which roadmap step each change served:
 4. **Step 12** — the `hasComments` filter, plus the `querySyncHelper` work (booleans,
    `filterAndQueryAreEqual` + its missing tests). The panel does **not** become filter-aware.
 
-2 and 3 can swap; 1 must come before 4. 2 and 3 are on `devel`; 1 and the `querySyncHelper` half
-of 4 are in their own cleanup PR; the rest of 4 is deferred.
+2 and 3 can swap; 1 must come before 4. 1, 2 and 3 are on `devel` (1 including a `hasComments`
+clause that is to be removed); the `filterAndQueryAreEqual` part of 4 is its own cleanup PR; the rest
+of 4 is deferred.
 
 ## Files touched
 
@@ -579,8 +583,9 @@ None — see the decisions above.
 - [ ] No per-activity comment requests fire — the count comes from one camp-wide fetch.
 - ~~The "has comments" filter works on the dashboard and, with no extra code, on the picasso.~~
   Deferred, as are its print omission and URL persistence.
-- [ ] `filterMatchScheduleEntry` takes a `context` argument, and `filterAndQueryAreEqual` is fixed and
-      finally has tests (separate cleanup PR).
+- [x] `filterMatchScheduleEntry` takes a `context` argument.
+- [ ] Its unused commented-activity (`hasComments`) clause and tests are removed again.
+- [ ] `filterAndQueryAreEqual` derives its keys and has tests (separate cleanup PR).
 - [ ] Steps 3 and 4 landed as separate commits.
 - [ ] No new backend endpoint, no migration, no snapshot regeneration.
 - [ ] `FEATURE_COMMENTS = true` set on the `staging` and then `prod` GitHub Environments. `staging`

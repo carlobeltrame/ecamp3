@@ -34,20 +34,28 @@ production week generates "nobody replied to me" instead of usage.
 **On `comments-frontend-2`, not on `devel`** (6 commits, dated 2026-08-02, i.e. written _before_ the core
 team rework that landed on `devel`):
 
-| commit      | content                                               | what to do with it                                             |
-| ----------- | ----------------------------------------------------- | -------------------------------------------------------------- |
-| `f56cea710` | `filterMatchScheduleEntry(…, context)` third argument | **kept** — separate PR, branch `filter-context-and-query-sync` |
-| `399155c00` | group the camp panel by activity, `programOrder.js`   | **drop** — superseded by `c61b4e8cb` and then `fbe2d9ff9`      |
-| `4f7efee33` | comment count on dashboard rows                       | **drop** — superseded by `911f2e7d9` / `d5ab92b7d`             |
-| `f4373179a` | `querySyncHelper`: booleans, `filterAndQueryAreEqual` | **kept** — same separate PR                                    |
-| `bd1bad55b` | "with comments" filter on dashboard and picasso       | **not now** — step 12 is deferred, see below                   |
-| `20bd291c4` | make the panel follow the dashboard filter and period | **drop** — contradicts phase 02's "panel ignores the filter"   |
+| commit      | content                                               | what to do with it                                                            |
+| ----------- | ----------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `f56cea710` | `filterMatchScheduleEntry(…, context)` third argument | **already on `devel`** as `baa8037be`                                         |
+| `399155c00` | group the camp panel by activity, `programOrder.js`   | **drop** — superseded by `c61b4e8cb` and then `fbe2d9ff9`                     |
+| `4f7efee33` | comment count on dashboard rows                       | **drop** — superseded by `911f2e7d9` / `d5ab92b7d`                            |
+| `f4373179a` | `querySyncHelper`: booleans, `filterAndQueryAreEqual` | **kept**, without the booleans — separate PR, `filter-context-and-query-sync` |
+| `bd1bad55b` | "with comments" filter on dashboard and picasso       | **not now** — step 12 is deferred, see below                                  |
+| `20bd291c4` | make the panel follow the dashboard filter and period | **drop** — contradicts phase 02's "panel ignores the filter"                  |
 
-The two kept commits are a cleanup and a bug fix that stand on their own, without any comments code:
-the `context` argument keeps derived data out of the JSON-serialised `filter`, and
-`filterAndQueryAreEqual` no longer ignores filter keys outside its hard-coded list. They are rebased
-onto `devel` on `filter-context-and-query-sync` for their own PR. `comments-frontend-2` can be deleted once that PR
-is merged; `bd1bad55b` stays reachable through it until then, in case step 12 comes back.
+`f56cea710` turned out to be on `devel` already, as `baa8037be` from the `comments-frontend` PR —
+including the **commented-activity filter** itself: a `hasComments` clause in
+`common/helpers/filterMatchScheduleEntry.js` matching against `context.activitiesWithComments`. Nothing
+sets `hasComments`, so that clause is dead code now that step 12 is deferred. **Remove it**, together
+with its test cases in `filterMatchScheduleEntry.spec.js`; keep the `context` argument, which is generic
+and is the intended home for the print configurator's `activityCount` (see "Known gaps").
+
+`f4373179a` is kept as a cleanup that stands on its own, without any comments code:
+`filterAndQueryAreEqual` derives its key list instead of hard-coding it, and finally has tests. Its
+boolean URL parameter support and the `hasComments` key are dropped, since only the deferred filter
+used them. It lives on `filter-context-and-query-sync` for its own PR, which is also the natural home for removing the
+commented-activity filter. `comments-frontend-2` can be deleted once that PR is merged; `bd1bad55b`
+stays reachable through it until then, in case step 12 comes back.
 
 **Open, in roadmap order:** step 2's rollout (dev, then staging and prod — no longer waiting for step
 12), the `filter-context-and-query-sync` PR, phase 03
@@ -158,9 +166,9 @@ backfill is unambiguous. Decide this _before_ step 7, not during.
 **Step 12 (dashboard filter) — deferred (decided 2026-10-17).** The need behind it — a coach's
 "todo list in my camp" — gets its own view later: phase 06's in-camp overview, with filters by
 responsibility, period, detached and resolved state. A "has comments" chip on the dashboard would be a
-weaker second answer to the same need. The design stays recorded in phase 02 in case it comes back; the
-generic parts it needed (the `context` argument on `filterMatchScheduleEntry`, boolean URL params and
-the `filterAndQueryAreEqual` fix) ship anyway as a separate cleanup PR.
+weaker second answer to the same need. The design stays recorded in phase 02 in case it comes back.
+The `hasComments` clause already on `devel` is removed again; the generic parts (the `context` argument
+on `filterMatchScheduleEntry`, the `filterAndQueryAreEqual` fix) stay.
 
 **Step 4 (orphan and camp-level comments) — no separate view.** The phase 01 panel already derives
 its scope from the route, so it is activity-scoped on an activity page and **camp-scoped everywhere
