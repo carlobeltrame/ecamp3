@@ -1,4 +1,4 @@
-# Phase 06 — Cross-camp overview (roadmap step 13)
+# Phase 06 — Comment overviews: cross-camp and in-camp (roadmap step 13, vision J/K)
 
 See [epic.md](epic.md) for the datamodel and decisions. Requires [01-usable-ui.md](01-usable-ui.md).
 
@@ -13,14 +13,52 @@ From outside any single camp, a user sees every comment addressed to them across
 so a J+S coach's change request on a camp you had not opened this week does not go unnoticed, and so
 you can work through feedback in one pass instead of camp by camp.
 
+### Also in-camp — vision points J and K
+
+The vision discussion in #828 added two wants that the panel deliberately does not serve (see phase 02,
+"What camp scope contains"), and that this list does:
+
+- **J** — "to work through feedback/tasks, the user should see the whole list of comments of their
+  responsibilities";
+- **K** — "camp managers and J+S coaches need to be able to list all comments and to be able to filter
+  by various criteria (resolved, period, detached)".
+
+Both are the same list as the cross-camp one, narrowed to one camp. So build **one view with a camp
+filter**, reachable two ways: the top-level route (all camps) and an in-camp route
+(`/camps/:campId/:campShortTitle/comments`, camp filter preset and hidden), linked from the camp
+navigation. Not a second component.
+
+Filters, all client-side over the one fetch:
+
+| filter                     | source                                                                                                        | available from  |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------- | --------------- |
+| camp                       | `comment.camp()`                                                                                              | this phase      |
+| not authored by me         | `comment.author()`                                                                                            | this phase      |
+| on my responsibilities (J) | `activity.activityResponsibles` → `campCollaboration.user`, as the dashboard's "only my activities" does      | this phase      |
+| period (K)                 | the activity has a schedule entry in that period; in-camp only                                                | this phase      |
+| detached (K)               | orphaned (`orphanDescription`, or the epic's predicate once context snapshots land); from 04 also de-anchored | this phase / 04 |
+| resolved (K)               | phase 03's `resolvedAt` on the thread root                                                                    | after 03        |
+
+Three rules worth fixing now:
+
+- **Camp-level comments and orphans have no period.** They pass the period filter only when it is empty;
+  do not invent a period for them. (The core meeting allows a period anchor later; when it exists, it is
+  the period those comments get.)
+- **The in-camp route is a camp route, so the panel could open over it.** Do not put a
+  `CommentsToggleButton` on that page: the list already is the comments, and two lists side by side is
+  confusing. The panel's route-derived scope otherwise stays untouched.
+- The context rule from the epic still holds: every row shows **what it is about** (activity, camp,
+  or the detached description) and links to it, so the list is a to-do list that navigates, not a pile
+  of fragments.
+
 ## Non-goals
 
-| Not in this phase                               | Where                          |
-| ----------------------------------------------- | ------------------------------ |
-| Unread state / read markers                     | 05 (step 8)                    |
-| Notifications of any kind                       | 05                             |
-| Comments on camps you are not a collaborator of | never — `filterByUser` decides |
-| A per-camp version of this list                 | phase 02's camp-scoped panel   |
+| Not in this phase                               | Where                                     |
+| ----------------------------------------------- | ----------------------------------------- |
+| Unread state / read markers                     | 05 (step 8)                               |
+| Notifications of any kind                       | 05                                        |
+| Comments on camps you are not a collaborator of | never — `filterByUser` decides            |
+| A second, per-camp component                    | not built — same view, camp filter preset |
 
 ## Backend changes
 
@@ -132,4 +170,6 @@ docker compose exec frontend npm run lint
 - [ ] Camp-level and orphaned comments have their own buckets.
 - [ ] "Not authored by me" filtering works client-side over a single fetch.
 - [ ] Clicking a comment lands on the right activity with the panel open.
+- [ ] The same view is reachable inside a camp, filtered to it, with period, detached, "on my
+      responsibilities" and (after 03) resolved filters.
 - [ ] No backend change, no migration, no snapshot regeneration.

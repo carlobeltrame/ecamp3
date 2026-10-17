@@ -94,16 +94,16 @@ The anchor is a ProseMirror **mark**, so it is stored per text node and remapped
 through every transaction. That gives the following behaviour, all of it a consequence of the data
 structure rather than of code we write:
 
-| what the user does                        | what happens to the anchor                      |
-| ----------------------------------------- | ----------------------------------------------- |
-| Adds a word **inside** the anchored range | Survives; the new text joins the anchor         |
-| Deletes a word inside the range           | Survives on the remaining text, as one run      |
-| Types at either **edge** of the range     | Anchor does **not** grow (`inclusive: false`)   |
-| Presses Enter in the middle of the range  | Survives, as **two DOM spans** with the same id |
-| Reformats the range (bold, list, …)       | Survives; marks coexist                         |
-| Deletes the whole range                   | **De-anchored** — thread keeps its `anchorText` |
-| Copies the range and pastes it elsewhere  | Paste carries **no** anchor (`transformPasted`) |
-| Cuts the range and pastes it back         | Mark is gone from the cut; see recovery below   |
+| what the user does                        | what happens to the anchor                         |
+| ----------------------------------------- | -------------------------------------------------- |
+| Adds a word **inside** the anchored range | Survives; the new text joins the anchor            |
+| Deletes a word inside the range           | Survives on the remaining text, as one run         |
+| Types at either **edge** of the range     | Anchor does **not** grow (`inclusive: false`)      |
+| Presses Enter in the middle of the range  | Survives, as **two DOM spans** with the same id    |
+| Reformats the range (bold, list, …)       | Survives; marks coexist                            |
+| Deletes the whole range                   | **De-anchored** — thread keeps its `anchorContext` |
+| Copies the range and pastes it elsewhere  | Paste carries **no** anchor (`transformPasted`)    |
+| Cuts the range and pastes it back         | Mark is gone from the cut; see recovery below      |
 
 Note that only the paragraph split produces more than one span. Deleting text inside the range — a
 word, or a selection running out of the range and back — leaves a single run, because ProseMirror
@@ -136,7 +136,7 @@ exactly one anchor (step 10 is dropped), so a second highlight for the same thre
 **Cut-paste and delete-retype recover automatically, by exact text match only.** Because the mark
 travels with neither, both leave the thread de-anchored even though the text is still there — which
 would feel broken. The fork already solves this and it is worth taking:
-`findSnippetRanges(doc, anchorText)` locates the stored snapshot in the document and re-applies the
+`findSnippetRanges(doc, anchorContext)` locates the stored snapshot in the document and re-applies the
 mark **only when it matches exactly once** across that content node's editors
 (`commentsController.reanchorContentNode`). Zero matches or two or more leave the thread de-anchored
 for good, because guessing would attach the thread to the wrong sentence — see "De-anchored and
@@ -158,7 +158,11 @@ Two consequences to be aware of when implementing it:
   recognise is one loading race away from destroying valid anchors. (This is a different thing from the
   backend's `CommentAnchors::stripFromData` during copying, which we _do_ take — see "Prototype copy".)
 
-## `anchorText` — a snapshot, frozen at creation
+## `anchorContext` — a snapshot, frozen at creation
+
+The core meeting in #828 agreed on exactly this: comments on text ranges persist the text range content
+at comment creation. The issue names the column `anchor_context`; earlier drafts of this plan called
+it `anchorText`.
 
 **It is not updated when the anchored content changes.** Editing inside the range leaves the stored
 snapshot exactly as it was when the comment was written. Three reasons, in order of weight:
@@ -175,7 +179,7 @@ The live position is carried by the **mark**, which _does_ follow every edit. Th
 survive the mark's death, not to track it.
 
 Nothing else updates it either, because **no anchor field is writable after creation** — see
-"De-anchored and orphaned threads are terminal". `anchorText` is `#[Groups(['read', 'create'])]` along
+"De-anchored and orphaned threads are terminal". `anchorContext` is `#[Groups(['read', 'create'])]` along
 with the rest, which makes the freeze an API guarantee rather than a frontend convention.
 
 Consequence to accept knowingly: after enough editing the snapshot stops matching the text, so the
@@ -198,7 +202,7 @@ characters of the original range, which is the sane degradation. The panel elide
 instead, in CSS.
 
 Server-side, `#[InputFilter\CleanText]` strips unicode control characters only — it does **not** strip
-markup. So `anchorText` is plain text by construction of the client, and the panel must render it as
+markup. So `anchorContext` is plain text by construction of the client, and the panel must render it as
 text (not through the rich-text renderer), which is what makes a client that posts markup there
 uninteresting.
 
@@ -209,6 +213,14 @@ content-type name. That is what the card actually shows in its toolbar
 or "on _Notes_" instead of quoting an empty string. Same freeze rule: renaming the card later does not
 rewrite existing comments.
 
+**If the core team adopts the epic's "Context snapshots" proposal**, this label moves out of
+`anchorContext` into its own `contentNodeContext` column, computed server-side at creation from the
+content node (the server has `instanceName` and the content type; the translated type name can be
+resolved in the frontend from the content type instead of being stored). `anchorContext` is then
+text-range-only, `activityContext` replaces `orphanDescription`, and this phase's migration adds all of
+them at once. Decide before writing the migration — not after, or it is two migrations and two snapshot
+regenerations.
+
 ## Non-goals
 
 | Not in this phase                                   | Where                                   |
@@ -218,7 +230,7 @@ rewrite existing comments.
 | Fuzzy / scored re-anchoring                         | not built — exact unique match only     |
 | Manual re-anchoring of a de-anchored thread         | not built — see "terminal" below        |
 | Moving an orphan to a replacement activity          | not built — same reason                 |
-| Keeping `anchorText` in sync with edited content    | never — see above                       |
+| Keeping `anchorContext` in sync with edited content | never — see above                       |
 | Anchors inside a content node other than rich text  | later — the model already allows it     |
 | Comments on category (prototype) content-node trees | never — see the validation below        |
 | Anchoring to a schedule entry                       | postponed — see the open question below |
@@ -317,7 +329,7 @@ public ?string $anchorId = null;
 #[ApiProperty(example: 'the sentence that was commented on')]
 #[Groups(['read', 'create'])]
 #[ORM\Column(type: 'text', nullable: true)]
-public ?string $anchorText = null;
+public ?string $anchorContext = null;
 ```
 
 **None of the four is in the `update` group**, and neither is `activity`. Phase 04 adds no writable
@@ -463,7 +475,7 @@ is where and how, and it needs the comment-before-mark ordering as a prerequisit
 ### What if a comment's `anchorId` is never cleared?
 
 It never is — that is the design, not a failure mode. When the anchored text is deleted, **nothing writes
-to the comment**: it keeps its `anchorId`, `anchorPath`, `contentNode` and `anchorText`, and the frontend
+to the comment**: it keeps its `anchorId`, `anchorPath`, `contentNode` and `anchorContext`, and the frontend
 concludes "de-anchored" from the mark's absence, not from a null column. Which means:
 
 - there is no write on page load, so opening an activity can never mutate comments;
@@ -496,6 +508,7 @@ export const commentsState = reactive({
   open: false, // phase 01
   activityFilter: null, // phase 02's mobile badge filter
   showResolved: false, // phase 03's "Open" / "All" toggle
+  authorFilter: null, // phase 03's mobile author filter
   commentsLoaded: false, // editors must not re-anchor before this
   activeCommentUri: null, // the focused thread
   anchors: [], // see below; set by CommentsList
@@ -526,6 +539,7 @@ export function resetCommentsState() {
   commentsState.open = false // phase 01
   commentsState.activityFilter = null // phase 02
   commentsState.showResolved = false // phase 03
+  commentsState.authorFilter = null // phase 03
   commentsState.commentsLoaded = false
   commentsState.activeCommentUri = null
   commentsState.anchors = []
@@ -549,7 +563,7 @@ element references and callbacks, which have no business being reactive. Only th
 `(uri, path)`. The registry resolves the surface; the surface resolves the id.
 
 **`anchors` is one flat array of descriptors**, `{ commentUri, targetUri, anchorPath, anchorId,
-anchorText, resolved }`, published by `CommentsList` once its collection resolves. Consumers filter it
+anchorContext, resolved }`, published by `CommentsList` once its collection resolves. Consumers filter it
 themselves: an editor takes the entries matching its own `(uri, path)`. This deliberately replaces the
 fork's four parallel structures (`highlightAnchorIds`, `allAnchorIds`, `anchorsByNode`,
 `pendingAnchorIds`), which have to be kept mutually consistent by hand — one array with a `resolved`
@@ -639,7 +653,7 @@ If a future surface ever needs to override this — an anchor host whose DOM ord
 logical order — the escape hatch is an optional `order` number on the host, consulted before the DOM
 comparison. Do not build it until something needs it.
 
-**A de-anchored comment is still an ordinary card**, quoting its `anchorText` snapshot instead of
+**A de-anchored comment is still an ordinary card**, quoting its `anchorContext` snapshot instead of
 scrolling anywhere when clicked. One that kept its `activity` but lost its content-node anchor is not
 an orphan in phase 02's sense (`orphanDescription !== null`, meaning the activity itself is gone), so
 it stays in that activity's list. Where in the list depends on the scope, and both answers come from
@@ -703,7 +717,7 @@ Every call site already knows what kind of thing it is anchoring to — `Content
 node, on the picasso the only thing commentable is a schedule entry — so it just names the key:
 
 ```js
-createComment({ contentNode: uri, anchorPath, anchorId, anchorText, textHtml })
+createComment({ contentNode: uri, anchorPath, anchorId, anchorContext, textHtml })
 ```
 
 `anchorKey(uri, path)` stays the one shared convention, because the registry genuinely needs a single
@@ -836,7 +850,7 @@ cross-browser.
 ### De-anchored and orphaned threads are terminal — recovery is automatic or not at all
 
 A thread whose anchor is gone renders at the bottom of the activity's list (see Ordering above),
-showing its `anchorText` snapshot as a quote instead of pointing anywhere. There is exactly one way
+showing its `anchorContext` snapshot as a quote instead of pointing anywhere. There is exactly one way
 back:
 
 **Automatic, exact and unique.** For a text anchor, `findSnippetRanges` looks for the snapshot in the
@@ -864,11 +878,12 @@ draft designed all three. They are dropped:
   and a second gesture for narrowing to a text range — for a state that the automatic recovery already
   removes in the common cases.
 - The feature already has an answer for a comment that no longer applies, and it is the one the epic is
-  built around: **resolve it**. A de-anchored thread is readable, replyable, resolvable and deletable by
-  its author. Nothing is lost, because `anchorText` still says what it was written against.
+  built around: **resolve it** — by a person. Losing an anchor never resolves a thread automatically
+  (vision point G in #828): detached comments stay visible until somebody decides they are dealt with. A de-anchored thread is readable, replyable, resolvable and deletable by
+  its author. Nothing is lost, because `anchorContext` still says what it was written against.
 
 Concretely, phase 04 therefore adds **no writable field at all**: `contentNode`, `anchorPath`, `anchorId`
-and `anchorText` are all `read, create`, and the `Patch` operation stays exactly as phase 03 left it —
+and `anchorContext` are all `read, create`, and the `Patch` operation stays exactly as phase 03 left it —
 resolve and reopen. If manual re-anchoring is ever wanted, it is a later phase that adds the fields to
 the `update` group and the rules with them.
 
@@ -894,7 +909,7 @@ Seed one of each anchor shape, because each one exercises a different part of th
   highlight styling ever gets looked at;
 - a comment on one **storyboard cell**, which is the `anchorPath`-with-a-uuid-segment case;
 - a comment on a whole **content-node card**, one with a custom `instanceName` so the label form of
-  `anchorText` is visible;
+  `anchorContext` is visible;
 - one **de-anchored** thread, made by anchoring a comment and then rewriting the sentence — so the
   quoted-snapshot rendering is visible on `dev` without having to break something by hand;
 - a **resolved anchored thread**, so the muted "All" highlight has a subject;
@@ -968,7 +983,7 @@ Specific cases that must exist:
   API test proves they are wired up);
 - an `anchorPath` that fails the regex → 422;
 - a `contentNode` from a different camp → 422 "Must belong to the same camp.";
-- **PATCH of any anchor field is a no-op** — `contentNode`, `anchorPath`, `anchorId`, `anchorText` and
+- **PATCH of any anchor field is a no-op** — `contentNode`, `anchorPath`, `anchorId`, `anchorContext` and
   `activity` all come back unchanged, because none of them is in the `update` group. One test over the
   five, so that adding a field to that group later cannot pass unnoticed;
 - deleting a content node sets `contentNode` to NULL and leaves the comment readable;
@@ -1041,6 +1056,11 @@ snapshot, so do not treat a docblock edit as a comment-only change.
 
 ## Open questions
 
+- **Context snapshots** — adopt the issue's per-entity `…Context` columns (snapshot at creation,
+  replacing `orphanDescription`) in this phase's migration? _No default; needs a core team decision_,
+  which explicitly did not reach common ground in the last meeting. See the epic's "Context snapshots".
+  `anchorContext` itself is agreed and not part of this question.
+
 - Ship the `scheduleEntry` FK in this migration anyway, on the grounds that it is nearly free? _Default:
   no._ Nothing in this epic plans a picasso anchor — there is no phase waiting on it — and one nullable
   column plus an index is a trivial migration whenever someone does want it. What must **not** happen is
@@ -1068,7 +1088,7 @@ snapshot, so do not treat a docblock edit as a comment-only change.
       one registry call per surface type.
 - [ ] Anchors survive mid-range edits, paragraph splits, cut-paste and delete-retype; copy-paste creates
       no second anchor, and one id resolving to several elements is handled everywhere.
-- [ ] `anchorText` is never rewritten at all; no anchor field is in the `update` group, and the `Patch`
+- [ ] `anchorContext` is never rewritten at all; no anchor field is in the `update` group, and the `Patch`
       operation is unchanged from phase 03.
 - [ ] Panel order follows the document through in-editor moves, not only through mounts.
 - [ ] Category content nodes are rejected as anchor targets by the API.

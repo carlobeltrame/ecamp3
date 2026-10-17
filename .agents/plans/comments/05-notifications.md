@@ -15,6 +15,8 @@ schema, it is an unread-count endpoint that is not N+1 across every camp on the 
 Frontend: a bubble in `NavigationCamp.vue`. This **supersedes phase 02's dashboard badge** — "has
 comments" becomes "has unread comments" — which is exactly why phase 02 keeps that badge dumb.
 Depends on 3, not on 5.
+This is vision point N in #828 ("users want to see an indication for new comments"), and the
+issue's "personal notification bubble with read markers".
 
 **Step 9 — mentions.** Either a `span[data-mention]` allowlist in
 `api/config/packages/exercise_html_purifier.yaml` resolved to a `CampCollaboration`, or a proper

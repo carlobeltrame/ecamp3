@@ -13,6 +13,83 @@ turns it on for **`dev`**; `staging` (an exact copy of prod, with production dat
 off until phase 02 ships, because until comments are discoverable from the dashboard the first
 production week generates "nobody replied to me" instead of usage.
 
+## Status (2026-10-17)
+
+**On `devel`** — PR #10454 (`comments-frontend`) is merged, plus follow-ups by @manuelmeister and
+@carlobeltrame after the core team discussion:
+
+- Phase 01 complete: the singleton `CommentsPanel` in `App.vue`, `CommentsToggleButton`,
+  `CommentCard` / `CommentComposer` / `CommentsList`, read-only tiptap rendering, `isOutsider` fixed and
+  used as the only gate, `CAMP_IS_PUBLIC` removed from the item `Get`, e2e test, dev data seeds, and the
+  Helm wiring for `FEATURE_COMMENTS`. **Not yet done:** actually setting `FEATURE_COMMENTS = true` on the
+  `dev` GitHub Environment — still open in the issue's todo list.
+- Phase 02 steps 3 and 4 complete: the camp-scoped panel (desktop: camp-level and orphans only, plus the
+  "N more comments on individual activities" hint at the bottom; mobile: fullscreen, everything),
+  `scopedComments.js`, `CommentCountIcon` on dashboard rows and on the toggle, the desktop badge
+  navigating to the activity, the mobile badge filtering the panel (`commentsState.activityFilter`),
+  chronological order with scroll-to-bottom after posting, and the card background in the author's
+  lightened avatar colour.
+- `orphanDescription` now holds the category short name plus the activity title.
+
+**On `comments-frontend-2`, not on `devel`** (6 commits, dated 2026-08-02, i.e. written _before_ the core
+team rework that landed on `devel`):
+
+| commit      | content                                               | what to do with it                                           |
+| ----------- | ----------------------------------------------------- | ------------------------------------------------------------ |
+| `f56cea710` | `filterMatchScheduleEntry(…, context)` third argument | **port** — first commit of step 12                           |
+| `399155c00` | group the camp panel by activity, `programOrder.js`   | **drop** — superseded by `c61b4e8cb` and then `fbe2d9ff9`    |
+| `4f7efee33` | comment count on dashboard rows                       | **drop** — superseded by `911f2e7d9` / `d5ab92b7d`           |
+| `f4373179a` | `querySyncHelper`: booleans, `filterAndQueryAreEqual` | **port** — step 12                                           |
+| `bd1bad55b` | "with comments" filter on dashboard and picasso       | **port**, rebased onto `devel`'s `Dashboard.vue` comment Map |
+| `20bd291c4` | make the panel follow the dashboard filter and period | **drop** — contradicts phase 02's "panel ignores the filter" |
+
+So the next branch is: rebase `f56cea710`, `f4373179a` and `bd1bad55b` onto `devel` (the dashboard
+already builds a comment-count `Map` per activity, so the `activitiesWithComments` context can be derived
+from it instead of from the panel), and finish phase 02 with that.
+
+**Open, in roadmap order:** step 2's rollout (dev, then staging/prod after step 12), step 12, phase 03
+(threads, resolve, plus the mobile filters from the issue), the context-snapshot change (see "Context
+snapshots" below), phase 04, phase 06 (now including the in-camp overview), phase 05.
+
+## Decisions from the issue
+
+The offline vision discussion (@carlobeltrame, @manuelmeister) and the core meeting, both recorded in
+[#828](https://github.com/ecamp/ecamp3/issues/828), are the agreed baseline. Where each point lives:
+
+| #   | Vision point                                                                       | Where                             |
+| --- | ---------------------------------------------------------------------------------- | --------------------------------- |
+| A   | Comments anchored to an activity, part of one, the whole camp, or other entities   | 01/02 (done), 04, datamodel below |
+| B   | While writing, the commented context and the previous comments are visible         | 01 (drawer beside content), 04    |
+| C   | Everyone easily sees comments on the visible entity, esp. their responsibilities   | 02 (done), 06                     |
+| D   | Comments only shown where there is enough context                                  | 02 (desktop camp scope, done)     |
+| E   | Everyone can resolve                                                               | 03                                |
+| F   | Resolved comments hidden by default, but discoverable                              | 03 ("Open" / "All")               |
+| G   | Detached comments stay visible and are **not** automatically resolved              | 02 (done), 04                     |
+| H   | Only the author can delete their comment                                           | 01 (done), 03                     |
+| I   | Everyone can reply to a non-reply; nesting depth 1                                 | 03                                |
+| J   | Users see the whole list of comments on their responsibilities                     | 06                                |
+| K   | Managers / coaches list all comments, filtered by resolved, period, detached       | 06                                |
+| L   | Comment stays attached as close as possible: camp < activity < content node < path | datamodel below, 04               |
+| M   | Activity-orphaned comments visible alongside the camp-level ones                   | 02 (done)                         |
+| N   | Indication of new comments                                                         | 05 (step 8)                       |
+
+Further decisions from the same threads:
+
+- **Mobile panel is fullscreen** (decided; done). It also gets **filters**, for now only **by author and
+  by resolved status** — see phase 03, since resolved status only exists from there.
+- **Comments on an activity cannot have a period reference.** A period reference is possible later as
+  its own anchor level (a comment about a whole period, `activity === null`), not as an extra property on
+  activity comments. Not planned in any phase.
+- **Hide activity comments in the whole-camp panel** (desktop) — done.
+- **Text-range comments persist the commented text at creation** — agreed in the core meeting; that is
+  phase 04's anchor snapshot.
+- **Context snapshots for detached comments** — _no common ground yet_ in the core meeting, which decided
+  to ship with today's `orphanDescription` (category short name + title). The direction proposed in the
+  offline discussion is recorded under "Context snapshots" below and must be confirmed before it is
+  built.
+- MVP items "comments are not copied by prototype" and "comments are not printed" are the invariants
+  below; they hold today and phase 04 is the one that has to keep them.
+
 ## Who this is for
 
 Beyond the camp team itself, a primary audience is **J+S coaches**: they read the planned programme,
@@ -27,14 +104,17 @@ qualify for federal subsidies. That audience drives two rules that run against e
 
 ## Phase files
 
-| File                                                   | Roadmap steps | Backend work?                             |
-| ------------------------------------------------------ | ------------- | ----------------------------------------- |
-| [01-usable-ui.md](01-usable-ui.md)                     | 1, 2          | one-line security change                  |
-| [02-finding-comments.md](02-finding-comments.md)       | 3, 4, 12      | none                                      |
-| [03-conversations.md](03-conversations.md)             | 5, 6          | migration + first PATCH operation         |
-| [04-inline-anchoring.md](04-inline-anchoring.md)       | 7             | migration + purifier + prototype-copy fix |
-| [05-notifications.md](05-notifications.md)             | 8, 9, 11      | large; **not planned yet, deliberately**  |
-| [06-cross-camp-overview.md](06-cross-camp-overview.md) | 13            | none                                      |
+| File                                                   | Roadmap steps  | Backend work?                             |
+| ------------------------------------------------------ | -------------- | ----------------------------------------- |
+| [01-usable-ui.md](01-usable-ui.md)                     | 1, 2           | one-line security change                  |
+| [02-finding-comments.md](02-finding-comments.md)       | 3, 4, 12       | none                                      |
+| [03-conversations.md](03-conversations.md)             | 5, 6           | migration + first PATCH operation         |
+| [04-inline-anchoring.md](04-inline-anchoring.md)       | 7              | migration + purifier + prototype-copy fix |
+| [05-notifications.md](05-notifications.md)             | 8, 9, 11       | large; **not planned yet, deliberately**  |
+| [06-cross-camp-overview.md](06-cross-camp-overview.md) | 13, vision J/K | none                                      |
+
+Phase status: 01 done except the `dev` rollout; 02 steps 3 and 4 done, step 12 partly on
+`comments-frontend-2`; 03–06 not started. See "Status" above.
 
 ## Roadmap
 
@@ -103,7 +183,9 @@ The rule behind it: **a comment's context is part of the comment**. "This is too
 group" is a fragment beside a timestamp and meaningful beside the activity. Desktop can show both, so
 it insists on it; a phone cannot, so it does not pretend. Using a flat list of a camp's comments as a
 to-do list or as a way to navigate the programme are real wants, and they become their own features
-rather than a side effect of leaving a filter off. Phase 06 is the first of them.
+rather than a side effect of leaving a filter off. Phase 06 is the first of them, and since the
+vision discussion it covers both: the in-camp list filtered by resolved / period / detached (vision K)
+and "comments on my responsibilities" (vision J).
 
 Phase 04 adds a case inside activity scope — comments that keep their activity but lose their
 content-node anchor render inline, just above that activity's group, rather than in the orphan bucket.
@@ -149,18 +231,24 @@ comment
   activity       ?Activity        nullable, no DB cascade         exists
   author         User             NOT NULL, writable:false        exists
   textHtml       string           max 1024, HTMLPurifier          exists
-  orphanDescription ?string       max 32, writable:false          exists
+  orphanDescription ?string       max 32, writable:false          exists; replaced by activityContext (proposed)
   parent         ?Comment         phase 03
   resolvedAt     ?datetime        phase 03
   resolvedBy     ?User            phase 03
+  activityContext ?text           snapshot at creation            proposed, see "Context snapshots"
   contentNode    ?ContentNode     ON DELETE SET NULL              phase 04
+  contentNodeContext ?text        snapshot at creation            phase 04 (proposed name)
   anchorPath     ?string(128)     lodash path into the target     phase 04
   anchorId       ?string(36)      tiptap mark id                  phase 04
-  anchorText     ?text            snapshot, max 255, write-once   phase 04
+  anchorContext  ?text            snapshot, max 255, write-once   phase 04 (agreed in core meeting)
   scheduleEntry  ?ScheduleEntry   ON DELETE SET NULL              in the future
   checklistItem  ?ChecklistItem   ON DELETE SET NULL              in the future
   materialItem   ?MaterialItem    ON DELETE SET NULL              in the future
+  period         ?Period          only when activity is null      in the future (core meeting)
 ```
+
+`anchorContext` is the text-range snapshot earlier drafts called `anchorText`; the issue names the
+column `anchor_context`, and the `…Context` suffix lines it up with the other snapshot columns.
 
 The granularity ladder falls out with no discriminator column:
 
@@ -180,7 +268,40 @@ The last three rows are expressible but not built in phase 04. They are the shap
 next, and the model already says how each would be stored — as a foreign key, never as an `anchorPath`.
 
 Orphaned is unambiguous with existing columns: `orphanDescription !== null`. No `anchorLevel`
-column.
+column. **This changes if the context snapshots below are adopted**: once the activity snapshot is
+written at creation, every activity comment carries one, and orphaned becomes
+`activity === null && activityContext !== null`. Every place that tests `orphanDescription` today
+(`CommentCard`, `scopedComments`) moves to that predicate in the same commit.
+
+The ladder is vision point **L** from the issue — "stay attached as close to the initial anchor as
+possible, falling back camp < activity < content node < path". `ON DELETE SET NULL` on each level plus
+the denormalised `activity` is exactly that fallback: losing the path keeps the content node, losing the
+content node keeps the activity, losing the activity keeps the camp.
+
+### Context snapshots (proposed, not yet agreed)
+
+The offline discussion in #828 proposes, as open todos:
+
+1. compute the orphan description **when the comment is created**, not when the activity is deleted;
+2. replace `orphanDescription` with **one snapshot column per referenced entity** (`activityContext`,
+   `contentNodeContext`, …), each a human-readable summary of that entity at comment creation, so a
+   comment detached by any foreign deletion still says what it was about;
+3. for text-range anchors, additionally store the commented text as `anchorContext`.
+
+The core meeting agreed on 3 only, and explicitly shipped with today's `orphanDescription` for the rest.
+So: **3 is part of phase 04. 1 and 2 need a core team decision first**; if agreed, do them together with
+phase 04's migration rather than as a separate migration before it, because phase 04 adds the first
+second-level snapshot anyway and the orphan predicate above changes only once.
+
+Arguments to bring to that decision, so they are not rediscovered:
+
+- for: the snapshot then describes what the author saw, consistent with the "comments are traceable"
+  rule and with `anchorContext`; and it no longer needs a hook in every remove path (content nodes have
+  none — they die by DB cascade, see "Known gaps").
+- against: an activity renamed after the comment was written shows the old title once detached, and
+  every comment stores a copy of its activity's title. Both are cheap; neither is wrong.
+- the snapshots are `writable: false` and set server-side in a `CommentCreateProcessor` from the
+  referenced entities, except `anchorContext`, which only the client can produce (see phase 04).
 
 Three rules that are easy to get wrong:
 
@@ -195,9 +316,10 @@ strict rather than permissive: `contentNode !== null` implies `activity !== null
 
 **`contentNode` and `scheduleEntry` use `ON DELETE SET NULL`, with no remove-processor.** Content
 nodes really are deleted by DB cascade — see "Known gaps" below — so a PHP processor
-mirroring `ActivityRemoveProcessor` would silently miss the common case. Instead, `anchorText` (the
+mirroring `ActivityRemoveProcessor` would silently miss the common case. Instead, `anchorContext` (the
 snapshot stored so a thread can be re-anchored) doubles as the "this used to be attached to «…»"
-label. `orphanDescription` stays activity-only, as it is today. Schedule entries always belong to an
+label (or, if the context snapshots above are adopted, `contentNodeContext` does, for card-level
+anchors). `orphanDescription` stays activity-only, as it is today. Schedule entries always belong to an
 activity, so `SET NULL` there degrades a comment to activity-level, which is semantically right.
 
 Deferred on purpose: `CommentAnchor` (see step 10 above) and any denormalised `commentCount` column.

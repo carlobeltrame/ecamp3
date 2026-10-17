@@ -12,6 +12,9 @@ Resolve is not a nicety here. Because nobody may delete or edit anybody else's c
 (see the epic's "Who this is for"), resolving is the **only** way an addressed J+S condition or
 change request stops cluttering the panel. That is why step 6 ships with step 5 rather than later.
 
+This is vision points E, F, H and I from #828: everyone can resolve, resolved comments are hidden but
+discoverable, only the author deletes, and anyone can reply to a non-reply, so nesting depth is 1.
+
 Steps 5 and 6 ship together because they touch the same table, the same serialization groups and the
 same panel code. Apart, that is two migrations, two snapshot regenerations and two reworks of
 `CommentsList.vue`.
@@ -241,20 +244,22 @@ reason you switch to "All" is to read a resolved thread and decide whether it ne
 you cannot make that call from a truncated first line. Greying in place would also keep costing
 vertical space, which defeats the point of resolving at all.
 
-The toggle is per-panel UI state, so it belongs in `commentsState` — phase 01 created that module with
-one boolean, and this is its second field:
+The toggle is per-panel UI state, so it belongs in `commentsState`, next to phase 02's
+`activityFilter`:
 
 ```js
 export const commentsState = reactive({
   open: false, // phase 01
   activityFilter: null, // phase 02 — the mobile dashboard badge
   showResolved: false, // this phase — false is "Open", true is "All"
+  authorFilter: null, // this phase — mobile only, see below
 })
 
 export function resetCommentsState() {
   commentsState.open = false
   commentsState.activityFilter = null
   commentsState.showResolved = false
+  commentsState.authorFilter = null
 }
 ```
 
@@ -269,6 +274,32 @@ Three things follow from putting it there rather than in the component:
 
 It does **not** get URL persistence. Unlike phase 02's dashboard filters, nobody sends a colleague a
 link to a panel state.
+
+### Mobile panel filters — author and resolved status
+
+The vision discussion in #828 decided that the **mobile** panel gets filters, "for the moment only
+filterable by author, and resolved status". Mobile camp scope is the one place the panel lists every
+comment in the camp (phase 02), so it is the one place a long list needs narrowing. Resolved status is
+the Open/All toggle above, which exists on both viewports; this phase adds the **author** filter next to
+it, on mobile only.
+
+- One more field, `commentsState.authorFilter` (a user IRI or `null`), reset by `resetCommentsState()`
+  and cleared on close like `activityFilter` — a panel opening is the lifetime of every panel filter.
+- Options come from the authors present in the loaded collection, not from `campCollaborations`: a
+  former collaborator's comments must still be filterable, and nobody wants to pick an author with zero
+  comments.
+- It filters **threads by their root's author**. Filtering individual replies out of a thread would show
+  half a conversation.
+- `scopedComments` stays the single predicate for what is shown _and_ what the toggle counts — but the
+  author filter is a view filter applied inside the open panel, so it does **not** change the toggle's
+  count. It is unlike the badge-driven `activityFilter`, which is a scope and decides what the composer
+  posts to; the author filter decides nothing about writing.
+- Sorting stays `createTime` ascending (epic). The issue mentions "Filters/Sorting", but there is no
+  second order that makes sense for a chat-like list until phase 04's document order, and that one only
+  applies where the document is visible — i.e. not on mobile.
+
+Not on desktop: desktop camp scope holds only camp-level comments and orphans, and activity scope one
+activity's comments, both short. Add it there only when someone asks.
 
 **`CommentComposer.vue`** — gains an optional `parent` prop; when set, the POST body carries
 `parent: <iri>` and omits nothing else. `camp` and `activity` are still required and still arrive as
@@ -377,3 +408,6 @@ None — see the decisions above.
       resolver indicator and a reopen control — never collapsed to a summary and never greyed in
       place. The dashboard badge counts open threads only.
 - [ ] All three snapshot files regenerated; `composer test tests/Api/Comments/` green.
+- [ ] On mobile, the panel can be filtered by author (by thread root) and by resolved status; the
+      author filter is cleared on close and on camp change.
+- [ ] Detached comments are never resolved automatically (vision G).

@@ -14,6 +14,20 @@ straight to their feedback.
 
 Only after this ships is the toggle worth turning on in `staging` and `prod`.
 
+## Status (2026-10-17)
+
+- **Steps 3 and 4: done on `devel`** (PR #10454 and the follow-ups `c61b4e8cb` … `29170cd85`). The
+  shipped version follows this file, with these differences from the text below: the badge is
+  `CommentCountIcon` (count inside the bubble), not `CountBadge`; the desktop hint line sits at the
+  **bottom** of the list, below the comments (`b15207be7`), not above it; detached comments got a more
+  prominent treatment on the card (`29170cd85`).
+- **Step 12: not on `devel`.** Three of the six commits on `comments-frontend-2` implement it and should
+  be rebased onto `devel`: `f56cea710` (context argument), `f4373179a` (`querySyncHelper`) and
+  `bd1bad55b` (the filter). The other three are superseded or contradict this file — see the epic's
+  status table. When rebasing `bd1bad55b`, build `context.activitiesWithComments` from the comment-count
+  `Map` that `Dashboard.vue` already holds on `devel`; do not bring back `20bd291c4`'s panel-side Set.
+- **Rollout: open.** `dev` first (phase 01), then `staging` and `prod` once step 12 is in.
+
 ## The panel is camp-scoped here — no separate view
 
 Roadmap step 4 asked for "a place to display orphan comments or comments on the camp itself". That
@@ -101,7 +115,7 @@ Consequences to build:
   (`activity` is nullable, only `camp` is required). On desktop this is now the panel's main job.
   **Except under the mobile badge filter**, where the composer posts to that activity — see step 3.
 - Phase 04 needs nothing structural from this: a comment that kept its activity but lost its
-  content-node anchor is just a card that additionally quotes its `anchorText`, in its chronological
+  content-node anchor is just a card that additionally quotes its `anchorContext`, in its chronological
   place like every other.
 
 ## Non-goals
@@ -117,7 +131,7 @@ Consequences to build:
 | Any comments UI for external (public-camp) users                | never — gated on `isOutsider` in 01       |
 | A "has comments" filter in the **print** configs                | never — deliberately omitted, see step 12 |
 | A `commentCount` scalar or column on Activity                   | not built — see step 12                   |
-| A standalone camp comments page                                 | never — see above                         |
+| A standalone camp comments list with filters (vision K)         | 06 — its own list, not the panel          |
 
 ## Backend changes
 
@@ -379,8 +393,9 @@ Easy to forget, and each one produces a quietly wrong UI:
 #### URL persistence
 
 Persisting is the point of the feature: a coach sends the planning team a link to a filtered
-dashboard showing exactly the activities that need changes. It is also what lets the panel
-reconstruct the filter from the route (see Ordering above).
+dashboard showing exactly the activities that need changes. (An earlier draft also used it to let the
+panel reconstruct the filter from the route; that is gone — the panel ignores the dashboard filter,
+see Ordering above.)
 
 `frontend/src/helpers/querySyncHelper.js` needs two changes:
 
@@ -420,10 +435,9 @@ which roadmap step each change served:
    dashboard toggle button.
 3. **Step 3** — camp-wide comment fetch, `CountBadge` on `ActivityRow`, click-to-open-and-scroll.
 4. **Step 12** — the `hasComments` filter, plus the `querySyncHelper` work (booleans,
-   `filterAndQueryAreEqual` + its missing tests), and making the panel filter-aware.
+   `filterAndQueryAreEqual` + its missing tests). The panel does **not** become filter-aware.
 
-2 and 3 can swap; 1 must come before 4. Note the panel only becomes filter-aware in commit 4 — until
-then it orders by the unfiltered programme, which is correct because there is no filter yet.
+2 and 3 can swap; 1 must come before 4. 2 and 3 are on `devel`; 1 and 4 are the remaining work.
 
 ## Files touched
 
@@ -521,11 +535,9 @@ that looks right until you reload, so a text-only assertion would pass against b
    the panel shows.
 10. Toggle the "has comments" filter. Only the two rows remain and the filtered-count indicator
     updates. **Reload — the filter survives.** Copy the URL into a fresh browser profile logged in as
-    another collaborator and confirm they see the same filtered view **and, on mobile, the same panel
-    contents**.
+    another collaborator and confirm they see the same filtered view.
 11. Open the picasso with the same filter set. The commented entries stay normal, the rest are greyed
-    out and undraggable. **This should require no picasso code.** Open the panel there: on mobile it
-    shows only the displayed period's activities.
+    out and undraggable. **This should require no picasso code.**
 12. Open the print configurator and any print config's filter dialog. There is **no** "has comments"
     chip. Generate a PDF with another filter set — output unchanged from before this phase.
 13. Save a print config with filters, reload the page, and reopen it. The filters survive — this is
@@ -555,8 +567,8 @@ None — see the decisions above.
 - [ ] Dashboard rows show a comment count badge that opens and scrolls the panel when clicked.
 - [ ] The count sits inside the speech-bubble icon, shared by the row badges and the toggle button,
       legible in the toggle's active (filled) state and present in its aria-label.
-- [ ] The toggle's count equals the number of comments the panel shows in the current scope, filter
-      included.
+- [ ] The toggle's count equals the number of comments the panel shows in the current scope; the
+      dashboard filter affects neither.
 - [ ] No per-activity comment requests fire — the count comes from one camp-wide fetch.
 - [ ] The "has comments" filter works on the dashboard and, with no extra code, on the picasso.
 - [ ] The filter is absent from every print config, via the one-line `hide-comments-filter`.

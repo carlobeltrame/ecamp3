@@ -11,8 +11,12 @@ avatar and timestamp. They can write a rich-text comment and delete their own. O
 stays scrollable and interactive while the panel is open; on mobile the panel is fullscreen.
 Everything is translated and tested. Then the toggle is switched on for the `dev` deployment.
 
-Today none of that works: the composer is permanently disabled, the whole activity page waits for
-the comments request, and every string is hardcoded German.
+**Status (2026-10-17): done on `devel`** via PR #10454, except the last step: `FEATURE_COMMENTS = true`
+on the `dev` GitHub Environment is still unchecked in the issue's todo list. The Helm wiring for it is
+merged. This file is kept as the record of why the panel is built the way it is.
+
+Before this phase, none of that worked: the composer was permanently disabled, the whole activity page waited for
+the comments request, and every string was hardcoded German.
 
 ## Non-goals
 
