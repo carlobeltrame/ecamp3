@@ -44,10 +44,7 @@ const filterMatchScheduleEntry = (scheduleEntry, filter, context = {}) => {
       (!scheduleEntry.activity()._meta?.loading &&
         filter.progressLabel.includes(
           scheduleEntry.activity().progressLabel?.()._meta.self ?? 'none'
-        ))) &&
-    // filter by presence of comments
-    (!filter.hasComments ||
-      !!context.activitiesWithComments?.has(scheduleEntry.activity()._meta.self))
+        )))
   )
 }
 
