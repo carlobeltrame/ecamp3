@@ -193,8 +193,9 @@ Resolving is a **collaborator** action, not an author-only one, as in Google Doc
 **One schema migration** (`Version20261018154736`) adds `parentId`, `resolvedAt`, `resolvedById`,
 `authorDisplayName`, `resolvedByDisplayName`, makes `authorId` nullable and re-points it from `user` to
 `camp_collaboration`. Existing comments are converted to the author's collaboration in the comment's
-camp; an author without one (should not exist) keeps only their name, computed in SQL exactly like
-`Profile::getDisplayName()`.
+camp. Comments are not live yet and `dev` has no comments by people who left a camp, so the migration
+does not backfill `authorDisplayName`; an author without a collaboration would make adding the foreign
+key fail. `down()` simply reverses `up()`.
 
 **One dev-data migration** (`Version202610181600`, the previous one gutted). Its version sorts after the
 schema migration — the comparator compares names as strings, so mind the 12- vs 14-digit names.
@@ -212,19 +213,21 @@ thread, and a resolved single comment. Verify the result by migrating and compar
 `groupIntoThreads`.
 
 **`CommentsList.vue`** — groups the comments it is given into threads and renders one `CommentThread`
-per root. **Resolved threads are listed above the open ones**, not below as first drafted: that way
-the open threads stay next to the composer and a newly posted comment still lands directly above it,
-as the epic requires.
+per root, **chronologically by root**, resolved or not. The first draft sorted open threads before
+resolved ones; that only mattered under "Alle", and it would have put a newly posted comment above the
+resolved threads instead of directly above the composer, as the epic requires.
 
 **`CommentThread.vue`** (new) — root card, indented replies, Reply and Resolve / Reopen, and the
 "Erledigt von X am …" indicator (with the saved name, or just the date, once the resolver left).
-Resolved threads offer no Reply; reopen first. The reply composer is **hidden, not destroyed**, when
-closed (close button or Escape), so what was typed survives until the panel's list goes away; it is
-focused when opened. Escape in the reply composer does not close the mobile fullscreen panel.
+Resolved threads offer no Reply; reopen first. The reply composer is created when Reply is clicked and
+destroyed when it is closed (close button or Escape) — what was typed is discarded, which the X
+communicates. Keeping drafts was built and removed again: it needed extra focus code for little gain.
+Escape in the reply composer does not close the mobile fullscreen panel.
 
 **`CommentComposer.vue`** — optional `parent`; a reply posts only `{ textHtml, parent }`. Optional
-`cancelable`. `focus()` waits a few frames, because tiptap attaches its editor to the DOM only after
-mounting.
+`cancelable`. Optional `autofocus`, passed through `ERichtext` to a new `autofocus` prop of
+`TiptapEditor`, which hands it to tiptap's own `autofocus` option. Tiptap applies it only after
+`EditorContent` has attached the editor to the DOM, so no waiting code is needed.
 
 **`CommentCard.vue`** — author via `UserAvatar :camp-collaboration` and
 `campCollaborationDisplayName`, card colour from `campCollaborationColor`; falls back to
