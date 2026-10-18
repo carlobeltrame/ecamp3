@@ -36,7 +36,7 @@ Filters, all client-side over the one fetch:
 | filter                     | source                                                                                                        | available from  |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------- | --------------- |
 | camp                       | `comment.camp()`                                                                                              | this phase      |
-| not authored by me         | `comment.author()`                                                                                            | this phase      |
+| not authored by me         | `comment.author()` is a camp collaboration (phase 03); compare its `user()`; null once the author left        | this phase      |
 | on my responsibilities (J) | `activity.activityResponsibles` → `campCollaboration.user`, as the dashboard's "only my activities" does      | this phase      |
 | period (K)                 | the activity has a schedule entry in that period; in-camp only                                                | this phase      |
 | detached (K)               | orphaned (`orphanDescription`, or the epic's predicate once context snapshots land); from 04 also de-anchored | this phase / 04 |
@@ -69,13 +69,14 @@ Three rules worth fixing now:
 
 `GET /comments` with no parameters is already exactly this endpoint.
 `CommentRepository::filterByUser` (applied by `FilterByCurrentUserExtension`) restricts the
-collection to `author = current_user OR camp IN (SELECT camp FROM view_user_camps WHERE user =
-current_user)`. The `GetCollection` operation's security is `is_authenticated()`.
+collection to the camps the user is an **established** collaborator of. The `GetCollection`
+operation's security is `is_authenticated()`.
 
 Two consequences worth knowing before building the UI:
 
-- The response includes comments the user **authored**, even in camps they have since left. That is
-  probably desirable here; confirm it reads sensibly.
+- Comments in camps the user has left are **not** included, not even their own. Since phase 03 the
+  author is a camp collaboration, and once that collaboration is deleted the comment only keeps the
+  author's name (`authorDisplayName`), so there would be no way to find them anyway.
 - Once epic decision 2 lands (removing `CAMP_IS_PUBLIC` from the item `Get`), public-camp comments
   are consistently excluded — `filterByUser` already excluded them from collections.
 

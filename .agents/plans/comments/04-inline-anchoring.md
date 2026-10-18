@@ -282,8 +282,8 @@ three separate places today. Write them once, correctly, rather than regeneratin
 ```php
 /**
  * The content node this comment is anchored to, for inline (Google-Docs-style) comments.
- * Null for comments about the whole activity or the whole camp. Only set on the root
- * comment of a thread; replies inherit the anchor from their parent.
+ * Null for comments about the whole activity or the whole camp. Replies carry the anchor
+ * of their thread, copied from the comment they reply to.
  */
 #[AssertBelongsToSameCamp]
 #[AssertBelongsToSameActivity]
@@ -356,24 +356,34 @@ cases, and one of them cannot be an expression at all.
 **`App\Validator\Comment\AssertValidAnchor`** — new, class-level on `Comment`, covering the three
 rules that are really one rule, "the anchor is well formed":
 
-| rule                                   | message                                                         |
-| -------------------------------------- | --------------------------------------------------------------- |
-| `anchorPath` requires an anchor target | An anchorPath requires an anchor target.                        |
-| `anchorId` requires an `anchorPath`    | An anchorId requires the anchorPath of the anchored field.      |
-| a reply carries no anchor of its own   | Replies inherit the anchor from the root comment of the thread. |
+| rule                                   | message                                                    |
+| -------------------------------------- | ---------------------------------------------------------- |
+| `anchorPath` requires an anchor target | An anchorPath requires an anchor target.                   |
+| `anchorId` requires an `anchorPath`    | An anchorId requires the anchorPath of the anchored field. |
 
 One constraint class, one validator, one `AssertValidAnchorValidatorTest` enumerating the valid and
-invalid combinations — which is the point, because these three rules define what an anchor _is_ and
-they are the ones a future anchor type (schedule entries) must not break. Three separate inline
-expressions would test the same logic with no test at all.
+invalid combinations — which is the point, because these rules define what an anchor _is_ and they
+are the ones a future anchor type (schedule entries) must not break.
+
+**Replies are not this validator's business.** Since phase 03, a reply carries the **full anchor of its
+thread**: add `contentNode`, `anchorPath`, `anchorId` and `anchorContext` (and the proposed
+`contentNodeContext`) to `Comment::ANCHOR_FIELDS`, and `CommentCreateProcessor` copies them from the
+parent while `AssertSameAnchorAsParent` rejects contradicting values. Extend that validator to compare
+scalar fields directly (today it compares entities by `getId()`), and add those cases to
+`AssertSameAnchorAsParentValidatorTest`. This replaces the first draft's rule "a reply carries no anchor
+of its own", so that per-anchor counts stay one indexed query (epic: "Replies carry the full anchor of
+their thread"). Consequence for the frontend: **only thread roots publish anchors** to the registry —
+a reply's identical anchor would otherwise be highlighted twice.
 
 It has to be class-level, since it spans four properties, so it needs
 `->atPath('anchorPath')` / `->atPath('anchorId')` to attach violations to the property the client got
 wrong. That is a first for this codebase (`atPath` is currently unused) — worth the one-line novelty,
 because the alternative is a violation on the resource with no field pointer.
 
-**`App\Validator\Comment\AssertBelongsToSameActivity`** — created in phase 03 for `$parent`; extend it
-here to also accept a `ContentNode`. Do it the way `AssertBelongsToSameCampValidator` does, because it
+**`App\Validator\Comment\AssertBelongsToSameActivity`** — new in this phase, for `$contentNode`. (An
+earlier draft had phase 03 create it for `$parent`; phase 03 uses `AssertSameAnchorAsParent` instead,
+because comparing a reply with its parent treats "both without activity" as equal, while this check must
+treat a missing activity as a violation.) Do it the way `AssertBelongsToSameCampValidator` does, because it
 is the same problem one level down: it does not switch on concrete classes, it asks whether the value
 implements one of two **interfaces** and delegates the awkward case to a trait
 (`GetCampFromContentNodeTrait::getCampFromInterface`). Mirror that exactly:
@@ -398,8 +408,8 @@ rule needs no separate expression. That single extension covers both remaining r
   lets the "denormalise `activity` onto every anchor" guarantee stay total, and therefore what lets
   the dashboard badge stay one indexed query.
 
-Add the `ContentNode` case to `AssertBelongsToSameActivityValidatorTest` in the same commit; the
-validator now takes two value types, and the second one is the one with the tree walk in it.
+`AssertBelongsToSameActivityValidatorTest` follows the house `ConstraintValidatorTestCase` shape,
+including the content-node cases with the tree walk.
 
 `AssertBelongsToSameCamp` needs no change — it already handles `ContentNode` via
 `BelongsToContentNodeTreeInterface` and `GetCampFromContentNodeTrait`.
@@ -507,8 +517,7 @@ it grows.
 export const commentsState = reactive({
   open: false, // phase 01
   activityFilter: null, // phase 02's mobile badge filter
-  showResolved: false, // phase 03's "Open" / "All" toggle
-  authorFilter: null, // phase 03's mobile author filter
+  showResolved: false, // phase 03's "Open" / "All" switch
   commentsLoaded: false, // editors must not re-anchor before this
   activeCommentUri: null, // the focused thread
   anchors: [], // see below; set by CommentsList
@@ -539,7 +548,6 @@ export function resetCommentsState() {
   commentsState.open = false // phase 01
   commentsState.activityFilter = null // phase 02
   commentsState.showResolved = false // phase 03
-  commentsState.authorFilter = null // phase 03
   commentsState.commentsLoaded = false
   commentsState.activeCommentUri = null
   commentsState.anchors = []
@@ -930,8 +938,13 @@ api/tests/Util/CommentAnchorsTest.php                           new (+nested, +o
 api/src/Validator/Comment/AssertValidAnchor.php                 new
 api/src/Validator/Comment/AssertValidAnchorValidator.php        new
 api/tests/Validator/Comment/AssertValidAnchorValidatorTest.php  new
-api/src/Util/GetActivityFromContentNodeTrait.php                 modified (+content-node branch)
-api/tests/Validator/Comment/AssertBelongsToSameActivityValidatorTest.php  +ContentNode cases
+api/src/Entity/BelongsToActivityInterface.php                    new
+api/src/Util/GetActivityFromContentNodeTrait.php                 new
+api/src/Validator/Comment/AssertBelongsToSameActivity.php        new
+api/src/Validator/Comment/AssertBelongsToSameActivityValidator.php  new
+api/tests/Validator/Comment/AssertBelongsToSameActivityValidatorTest.php  new
+api/src/Validator/Comment/AssertSameAnchorAsParentValidator.php  modified (+scalar fields)
+api/tests/Validator/Comment/AssertSameAnchorAsParentValidatorTest.php  +anchor field cases
 api/config/packages/exercise_html_purifier.yaml                 +3 lines
 api/migrations/schema/VersionYYYYMMDDHHMMSS.php                 new
 api/migrations/dev-data/data.sql                                regenerated (+anchored comments)
@@ -975,10 +988,13 @@ Specific cases that must exist:
 - **`data-comment-id` survives `CleanHTMLFilter`** — the keystone test, write it first, and keep it as
   the regression guard for the purifier config;
 - `AssertValidAnchorValidatorTest` — the anchor-shape table: `anchorPath` without a target, `anchorId`
-  without `anchorPath`, a reply carrying an anchor, and the valid combinations (target only, target +
-  path, target + path + id, nothing at all);
-- `AssertBelongsToSameActivityValidatorTest` — the new `ContentNode` cases: a content node of another
-  activity, a content node of a category prototype tree, and the matching case;
+  without `anchorPath`, and the valid combinations (target only, target + path, target + path + id,
+  nothing at all);
+- `AssertSameAnchorAsParentValidatorTest` — a reply contradicting its parent's `contentNode`,
+  `anchorPath` or `anchorId`; and through the API, a reply posted with only `parent` gets the full anchor;
+- `AssertBelongsToSameActivityValidatorTest` — the `ContentNode` cases: a content node of another
+  activity, a content node of a category prototype tree, a content node on a comment without activity,
+  and the matching case;
 - the same four rules once each through the API → 422 (the validator test covers the combinations; the
   API test proves they are wired up);
 - an `anchorPath` that fails the regex → 422;

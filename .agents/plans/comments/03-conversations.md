@@ -17,7 +17,13 @@ discoverable, only the author deletes, and anyone can reply to a non-reply, so n
 
 Steps 5 and 6 ship together because they touch the same table, the same serialization groups and the
 same panel code. Apart, that is two migrations, two snapshot regenerations and two reworks of
-`CommentsList.vue`.
+`CommentsList.vue`. For the same reason, this phase also moves comment authorship to camp
+collaborations (see below): **one schema migration and one dev-data migration** for all of it.
+
+## Status (2026-10-18)
+
+Implemented on `comments-frontend-3`, not yet merged. This file describes what was built; where the
+implementation deliberately departs from the first draft of this plan, the reason is given in place.
 
 ## Non-goals
 
@@ -28,26 +34,27 @@ same panel code. Apart, that is two migrations, two snapshot regenerations and t
 | Anchoring a thread to a text range or content node | 04                                                 |
 | Notifying anyone that they got a reply             | 05                                                 |
 | Per-user read state on a thread                    | 05                                                 |
+| Filtering the mobile panel by author               | deferred — see "Mobile author filter" below        |
 
 ## Backend changes
 
-This phase adds **the first `Patch` operation this entity has ever had**. `Comment` currently
-exposes only `read` and `create` serialization groups, and `UpdateCommentTest` asserts 405.
+This phase adds **the first `Patch` operation this entity has ever had**. Before it, `Comment` exposed
+only `read` and `create` serialization groups, and `UpdateCommentTest` asserted 405.
+
+Every new property gets a docblock in the house style. API Platform emits them as `description` in the
+OpenAPI spec, and **it cuts a description short at the first line that ends with a period** — so within
+one docblock, only the last line may end with a period; wrap sentences so no line break follows a full
+stop.
 
 ### Threading (step 5)
 
-Every new property gets a docblock in the house style — a short summary of what it is for, in full
-sentences. API Platform reads them and emits them as `description` in the OpenAPI spec, so they show up
-in the snapshot; `Comment::$orphanDescription`'s docblock is in there verbatim three times today. Write
-them with the code, not after regenerating snapshots twice.
-
 ```php
 /**
- * The comment this one replies to, or null if it starts a thread.
- * Threads are flat: a reply always points at the root comment of its thread.
+ * The comment this one replies to, or null if it starts a thread. Threads are flat, so
+ * a reply always points at the root comment of its thread.
  */
 #[AssertBelongsToSameCamp]
-#[AssertBelongsToSameActivity]
+#[AssertSameAnchorAsParent]
 #[Assert\Expression('value === null or value.parent === null', 'Cannot reply to a reply.')]
 #[ApiProperty(example: '/comments/1a2b3c4d')]
 #[Groups(['read', 'create'])]
@@ -56,78 +63,96 @@ them with the code, not after regenerating snapshots twice.
 public ?Comment $parent = null;
 
 /**
- * The replies to this comment, oldest first. Always empty on a reply.
+ * The replies to this comment, oldest first. Always empty on a reply. Deleting a comment
+ * also deletes its replies, so this is only possible as long as all of them were written
+ * by the author of the comment, because nobody may delete the comments of other people.
  *
  * @var Collection<int, Comment>
  */
+#[Assert\Expression(
+    '!this.hasRepliesByOthers()',
+    'It\'s not possible to delete a comment as long as other people have replied to it.',
+    groups: ['delete']
+)]
 #[ApiProperty(writable: false, example: '["/comments/1a2b3c4d"]')]
 #[Groups(['read'])]
-#[ORM\OneToMany(targetEntity: self::class, mappedBy: 'parent')]
-#[ORM\OrderBy(['createTime' => 'ASC'])]
+#[ORM\OneToMany(targetEntity: self::class, mappedBy: 'parent', cascade: ['remove'])]
+#[ORM\OrderBy(['createTime' => \SortDirection::Ascending])]
 public Collection $children;
 ```
 
-Initialise `$children` in a constructor. A fourth rule ("replies inherit the anchor and carry none of
-their own") belongs to phase 04, which adds it as part of its `AssertValidAnchor` validator.
+**A reply is about whatever its thread is about, and the client does not repeat it.** A reply is posted
+as `{ parent, textHtml }`; camp and anchor come from the parent:
 
-Phase 04 also **extends `AssertBelongsToSameActivity`** to accept a `ContentNode` value — see the
-validator note below, which is why it is built interface-first rather than typed to `Comment`.
+- `Comment::getCamp()` falls back to `$this->parent?->getCamp()`. That is what the `CAMP_COLLABORATOR`
+  check in `securityPostDenormalize` reads, so the security check works before anything is copied. The
+  auto-mapped NotNull on the `camp` property is disabled for that reason and replaced by
+  `#[Assert\NotNull]` on `getCamp()` (same violation path `camp`).
+- `CommentCreateProcessor` copies `camp`, every field in `Comment::ANCHOR_FIELDS` (today only
+  `activity`) and `orphanDescription` from the parent onto the reply.
+- **Replies carry the full anchor of their thread.** Every anchor field is denormalised onto every reply,
+  for the same reason `activity` is denormalised onto every anchor (see the epic): "how many comments
+  are on this schedule entry / content node" must stay one indexed query, without a join through
+  `parent`. Phase 04 and later anchor types add their fields to `Comment::ANCHOR_FIELDS` and get the
+  copying for free. Highlights in the content only consider thread roots.
+- **`App\Validator\Comment\AssertSameAnchorAsParent`** on `$parent` rejects a reply that sends anchor
+  fields contradicting its parent's (sending none, or the same ones, is fine). One validator for all
+  anchor fields, typed to `Comment` — not one validator per anchor entity, and no interface: it only
+  ever compares a comment with its parent. Message: `Must be about the same {{ field }} as the comment
+it replies to.` Phase 04 extends it to compare scalar anchor fields (`anchorPath`, `anchorId`) as
+  well as entities.
+- **No-nesting stays a one-line `Assert\Expression`.** This is a depth-1 tree, so none of
+  `AssertNoLoop` / `getNestingLevel()` / `getSubtreeDepth()` applies.
+- **`AssertBelongsToSameCamp` on `$parent` — free,** since `Comment` implements
+  `BelongsToCampInterface`; it catches a reply that sends a different camp.
 
-**Write one custom validator, keep one rule inline.** The reference fork expresses all three as
-`Assert\Expression`; that is not the house pattern here, and one of the three genuinely needs a
-validator.
+An earlier draft introduced `AssertBelongsToSameActivity` with a `BelongsToActivityInterface` and a
+`GetActivityFromContentNodeTrait` for `$parent`. That is gone: comparing a reply with its parent is a
+different question ("same thread?") from phase 04's "does this content node belong to this activity?",
+which wants the opposite treatment of `null` — see phase 04, which now introduces that validator.
 
-- **`AssertBelongsToSameActivity` — new custom validator.** Nothing existing fits:
-  `AssertBelongsToSameCamp` is camp-only. It needs to be a validator rather than an expression because
-  `Comment::$activity` is **nullable**: the expression would need null guards on both sides plus
-  `getId()` comparison (every validator here compares `getId()`, never `==` on entities, because of
-  Doctrine proxies), which produces an untestable string longer than the validator body — and the
-  null-on-both-sides case could not be unit-tested at all. Decide that case explicitly;
-  `AssertBelongsToSameCampValidator` treats null/null as a violation, and matching it is probably right.
+**Deletion, per epic decision 4 (refined):** deleting a root whose replies are **all by its own author**
+deletes the thread (`cascade: ['remove']` on `children`); as soon as anybody else replied, `DELETE`
+answers 422. The traceability rule is about other people's comments, and that is what stays protected.
+The FK itself has no `ON DELETE` clause.
 
-  **Model it on `AssertBelongsToSameCampValidator`, not on `ChecklistItem/AssertBelongsToSameChecklist`.**
-  The checklist one is a 39-line copy hardcoded to `->checklist` and typed to one concrete class, which
-  is a dead end here: phase 04 has to feed a `ContentNode` through the same constraint. The camp
-  validator already solves that shape — it accepts anything implementing one of two **interfaces** and
-  resolves the awkward case through a trait (`GetCampFromContentNodeTrait::getCampFromInterface`). So
-  introduce `App\Entity\BelongsToActivityInterface` (`getActivity(): ?Activity`) implemented by
-  `Comment`, resolve both sides through an `App\Util\GetActivityFromContentNodeTrait`, and compare
-  `getId()`. Phase 04 then adds a content-node branch to the trait and nothing else.
+**Do not add moderation delete.** `Delete` stays author-only:
+`object.author !== null and object.author.user === user`. Resolving is the mechanism for getting an
+addressed comment out of the way.
 
-- **No-nesting — inline `Assert\Expression`, one line.** This is a depth-1 tree, so none of
-  `AssertNoLoop` / `getNestingLevel()` / `getSubtreeDepth()` applies: a cycle is impossible at depth
-  1, and self-parenting is already rejected because such a comment has `value.parent !== null`. A
-  constraint class here would be a 40-line wrapper around a boolean. Inline Expression is rare but
-  accepted — there are exactly three in `api/src/`, including `ChecklistItem`'s depth limit.
-- **`AssertBelongsToSameCamp` on `$parent` — free.** `Comment` already implements
-  `BelongsToCampInterface`, so it costs nothing and gives a clean cross-camp error even when
-  `activity` is null on both comments.
+**Do not add `parent` to the `SearchFilter`.** The panel fetches every comment in the camp and assembles
+threads client-side.
 
-House pattern for the new validator: two files side by side in a per-entity subdirectory, autowired
-by the `App\` glob (no service registration), `UnexpectedTypeException` guard, early return on null,
-violation attached to the property by default (`->atPath()` is used nowhere). Do **not** add the
-message to `api/translations/validators.en.yml` — 12 of the 19 existing validators ship their English
-default untranslated.
+### Authorship — camp collaborations, not users
 
-`ChecklistItem::$parent` is the precedent for stacking constraints on one self-referencing property:
-`#[AssertBelongsToSameChecklist] #[AssertNoLoop] #[Assert\Expression(depth limit)]`.
+`author` and `resolvedBy` point at a **`CampCollaboration`**, not a `User`, so the camp-specific avatar
+overrides (`color`, `abbreviation`) apply, and an inactive collaborator is shown as such. If authorship
+ever moves back to `User`, a collaboration still knows its user, so the migration is one `UPDATE`.
 
-**Deletion, per epic decision 4:** the FK is **not** `onDelete: cascade`. The fork's cascade lets an
-author delete their root comment and silently destroy everyone else's replies, which the
-traceability rule forbids. Refuse instead — either a `Delete` security expression or a state
-processor that 409s when `children` is non-empty.
+```php
+#[Assert\DisableAutoMapping] // avoids validation error when author is null in payload
+#[ApiProperty(writable: false, example: '/camp_collaborations/1a2b3c4d')]
+#[Groups(['read', 'create'])]
+#[ORM\ManyToOne(targetEntity: CampCollaboration::class)]
+#[ORM\JoinColumn(nullable: true, onDelete: 'set null')]
+public ?CampCollaboration $author = null;
 
-**Do not add moderation delete.** The fork also widens `Delete` to
-`object.author === user or is_granted("CAMP_MANAGER", object)`. We do not want that: a J+S coach's
-conditions and change requests must not be removable by the camp team. `Delete` stays
-`object.author === user`, unchanged from today. Resolving is the mechanism for getting an addressed
-comment out of the way — which is exactly why steps 5 and 6 ship together.
+#[ApiProperty(writable: false, example: 'Bi-Pi')]
+#[Groups(['read'])]
+#[ORM\Column(type: 'text', nullable: true)]
+public ?string $authorDisplayName = null; // same pair for resolvedBy / resolvedByDisplayName
+```
 
-**Do not add `parent` to the `SearchFilter`.** Nothing needs it: the panel already fetches every
-comment in the camp and assembles threads client-side. If a later phase genuinely needs
-`?parent=<iri>`, add it together with a DB index on `parentId` and filter tests — an unindexed
-`SearchFilter` on a self-referencing FK is a slow query waiting to happen. (The FK column gets an
-index from the migration either way; the point is not to expose a query path nobody uses.)
+- `CommentCreateProcessor` and `CommentUpdateProcessor` look up the current user's collaboration in the
+  comment's camp (`CampCollaborationRepository::findByUserAndCamp`).
+- **Leaving the camp.** A collaboration can only be deleted once it is `inactive`. The new
+  `CampCollaborationRemoveProcessor` saves the user's display name into `authorDisplayName` /
+  `resolvedByDisplayName` of the affected comments before the database unlinks the collaboration
+  (`ON DELETE SET NULL`). Such a comment can no longer be deleted by anybody, which is consistent with
+  "nobody deletes somebody else's comment".
+- Only the name is saved, not the avatar override: a removed author is shown with a neutral "account
+  removed" avatar.
+- `User::$comments` is gone; nothing used it.
 
 ### Resolve (step 6)
 
@@ -139,33 +164,13 @@ new Patch(
 ),
 ```
 
-Two read-only columns plus a write-only virtual flag, all three with docblocks for the same reason as
-above:
+`resolvedAt` and `resolvedBy` are read-only; the write-only flag `resolved` is the only thing PATCH
+accepts — that survives phase 04, whose anchors are set at creation and never updated.
 
 ```php
 /**
- * When the thread was resolved. Null if the comment is a reply or if
- * the thread is still open.
- */
-#[ApiProperty(writable: false, example: '2022-01-01T00:00:00+00:00')]
-#[Groups(['read'])]
-#[ORM\Column(type: 'datetime', nullable: true)]
-public ?\DateTimeInterface $resolvedAt = null;
-
-/**
- * The user who resolved the thread. Null if the comment is a reply or
- * if the thread is still open.
- */
-#[Assert\DisableAutoMapping]
-#[ApiProperty(writable: false, example: '/users/1a2b3c4d')]
-#[Groups(['read'])]
-#[ORM\ManyToOne(targetEntity: User::class)]
-#[ORM\JoinColumn(nullable: true, onDelete: 'set null')]
-public ?User $resolvedBy = null;
-
-/**
- * Write-only flag for resolving (true) or reopening (false) a thread.
- * Only a thread's root comment can be resolved, not an individual reply.
+ * Write-only flag for resolving (true) or reopening (false) a thread. Only the root
+ * comment of a thread can be resolved, not an individual reply.
  */
 #[Assert\Expression(
     'this.resolved === null or this.parent === null',
@@ -176,238 +181,135 @@ public ?User $resolvedBy = null;
 public ?bool $resolved = null;
 ```
 
-**Resolving applies to a thread, so it is refused on a reply.** Say it three times, because each one
-catches a different mistake:
+`CommentUpdateProcessor`: `resolved === true` stamps `resolvedAt` / `resolvedBy` — **only if the thread
+is not resolved yet**, so resolving twice keeps the original resolver; `resolved === false` clears
+`resolvedAt`, `resolvedBy` and `resolvedByDisplayName`. `textHtml` stays out of the `update` group
+(epic decision 3), so the fork's `editedAt` listener and its `securityPostDenormalize` are not needed.
 
-- in the docblock, so it reaches the OpenAPI spec and a client author reads it before writing the call;
-- as the `Assert\Expression` above — a pure scalar-and-null check, the same shape as the no-nesting
-  rule, and it runs before `CommentUpdateProcessor` so the processor never sees the case;
-- in `UpdateCommentTest`: `PATCH {"resolved": true}` on a reply → 422, and the reply's `resolvedAt`
-  stays null.
+Resolving is a **collaborator** action, not an author-only one, as in Google Docs.
 
-Without it, `resolvedAt` could be stamped on a reply, where nothing reads it. The panel would ignore it,
-so the bug would be invisible until someone later wrote a query over resolved comments and got the wrong
-count.
+### Migrations
 
-`api/src/State/CommentUpdateProcessor.php` translates it: `resolved === true` stamps `resolvedAt`
-and `resolvedBy` from the current user, `resolved === false` clears both. Take the fork's
-implementation — but **drop its `editedAt` / `textHtml` change listener**, per epic decision 3.
-`textHtml` stays out of the `update` group, so the only thing PATCH can do is resolve and reopen.
-That also means the fork's
-`securityPostDenormalize: 'object.author === user or object.textHtml === previous_object.textHtml'`
-is unnecessary here.
+**One schema migration** (`Version20261018154736`) adds `parentId`, `resolvedAt`, `resolvedById`,
+`authorDisplayName`, `resolvedByDisplayName`, makes `authorId` nullable and re-points it from `user` to
+`camp_collaboration`. Existing comments are converted to the author's collaboration in the comment's
+camp; an author without one (should not exist) keeps only their name, computed in SQL exactly like
+`Profile::getDisplayName()`.
 
-Resolving is a **collaborator** action, not an author-only one — mirroring how anyone with edit
-access to a Google Doc can resolve a thread.
-
-**`resolved` is the only thing PATCH will ever accept**, and that survives phase 04: anchors are set at
-creation and never updated, so phase 04 adds no writable field and no `securityPostDenormalize`. Resolve
-is also the answer phase 04 gives for a comment whose anchor got lost — there is no repair UI, the thread
-is simply readable and resolvable like any other.
-
-### Migration
-
-One migration adding `parentId`, `resolvedAt`, `resolvedById`, the two FKs and their indexes.
+**One dev-data migration** (`Version202610181600`, the previous one gutted). Its version sorts after the
+schema migration — the comparator compares names as strings, so mind the 12- vs 14-digit names.
 
 ### Dev data seeds
 
-The toggle is on for `dev`, so threads and resolving need something to look at there, the same way
-phase 01 seeded the first comments. Same dump-based procedure
-(`api/migrations/dev-data/README.md`): wipe the local DB volume, create the data **through the
-frontend**, run `./create-data-migration-dump.sh`, hand-edit the new migration's `getDescription()`.
-
-Seed a thread with a couple of replies from different authors, a **resolved thread**, and a **resolved
-single comment with no replies** — the last one is the common case in practice and the one that shows
-whether a resolved comment reads sensibly on its own, without replies underneath it to carry the visual
-weight. Two traps carried over from phase 01: the DB wipe is mandatory or IDs drift, and the e2e suite
-hard-codes dev-data IDs (`e2e/utils/constants.ts`, plus the pinned lists under
-`e2e/tests/9-behavior-tests/httpCache/`), so re-run the behavior tests afterwards.
+Seeded by hand-editing `data.sql` instead of recreating through the frontend, which keeps all existing
+ids (the e2e suite hard-codes them): a thread with replies from two different authors, a resolved
+thread, and a resolved single comment. Verify the result by migrating and comparing a fresh `pg_dump`
+(same flags as `create-data-migration-dump.sh`) with `data.sql` — they must be identical.
 
 ## Frontend changes
 
-**`CommentsList.vue`** — group the flat collection into threads (root = `parent === null`, replies
-sorted by `createTime`), render one `CommentThread` per root, and sort open threads before resolved
-ones.
+**`commentThreads.js`** (new) — `threadRoot`, `isResolved` (a reply follows its root) and
+`groupIntoThreads`.
 
-**`frontend/src/components/comments/CommentThread.vue`** (new) — the root card, its replies, a
-compact reply composer, and the resolve/reopen control.
+**`CommentsList.vue`** — groups the comments it is given into threads and renders one `CommentThread`
+per root. **Resolved threads are listed above the open ones**, not below as first drafted: that way
+the open threads stay next to the composer and a newly posted comment still lands directly above it,
+as the epic requires.
 
-**Resolved threads are hidden, not collapsed.** An **"Open" / "All" toggle** in the panel header
-switches between them:
+**`CommentThread.vue`** (new) — root card, indented replies, Reply and Resolve / Reopen, and the
+"Erledigt von X am …" indicator (with the saved name, or just the date, once the resolver left).
+Resolved threads offer no Reply; reopen first. The reply composer is **hidden, not destroyed**, when
+closed (close button or Escape), so what was typed survives until the panel's list goes away; it is
+focused when opened. Escape in the reply composer does not close the mobile fullscreen panel.
 
-- **Open** (default) — resolved threads are simply absent from the list.
-- **All** — resolved threads render **in full**, exactly like open ones, with an indicator: who
-  resolved them and when, plus the reopen control.
+**`CommentComposer.vue`** — optional `parent`; a reply posts only `{ textHtml, parent }`. Optional
+`cancelable`. `focus()` waits a few frames, because tiptap attaches its editor to the DOM only after
+mounting.
 
-Do **not** collapse them to a summary line, and do not grey them in place in the Open view. The
-reason you switch to "All" is to read a resolved thread and decide whether it needs reopening, and
-you cannot make that call from a truncated first line. Greying in place would also keep costing
-vertical space, which defeats the point of resolving at all.
+**`CommentCard.vue`** — author via `UserAvatar :camp-collaboration` and
+`campCollaborationDisplayName`, card colour from `campCollaborationColor`; falls back to
+`authorDisplayName`. Delete is disabled with a tooltip while somebody else replied; deleting a root
+with only own replies warns that the replies go too.
 
-The toggle is per-panel UI state, so it belongs in `commentsState`, next to phase 02's
-`activityFilter`:
+**Resolved threads are hidden, not collapsed.** The **"Offen" / "Alle"** switch (`v-chip-group`
+with chips styled exactly like the dashboard's `BooleanFilter`; `v-chip` inside a group takes the
+unselected colour from `base-color`) switches between:
 
-```js
-export const commentsState = reactive({
-  open: false, // phase 01
-  activityFilter: null, // phase 02 — the mobile dashboard badge
-  showResolved: false, // this phase — false is "Open", true is "All"
-  authorFilter: null, // this phase — mobile only, see below
-})
+- **Open** (default) — resolved threads are absent from the list.
+- **All** — resolved threads render **in full**, with the resolver indicator and the reopen control.
 
-export function resetCommentsState() {
-  commentsState.open = false
-  commentsState.activityFilter = null
-  commentsState.showResolved = false
-  commentsState.authorFilter = null
-}
-```
+Do **not** collapse them to a summary line, and do not grey them in place in the Open view.
 
-Three things follow from putting it there rather than in the component:
+The switch is `commentsState.showResolved`, reset on camp change by `resetCommentsState()`, read by
+`scopedComments` (the single predicate for what the panel shows and what the toggle button counts),
+and later by phase 04 to decide which anchors are highlighted. No URL persistence.
 
-- `CommentsList` and the header toggle read the same flag without prop plumbing, and the panel is a
-  singleton so there is exactly one of it.
-- It gets cleared on camp change by phase 01's `resetCommentsState()` watcher, which is what you want:
-  "All" is a mode you switched into to deal with one camp's backlog.
-- Phase 04 reads the **same** flag to decide which anchors are highlighted in the content, so the
-  toggle and the highlights cannot disagree.
+**Counts:** dashboard badges count comments in open threads only. The desktop camp-scope notice
+"N weitere offene Kommentare befinden sich bei einzelnen Aktivitäten" counts **open threads** on
+activities and does not follow the Open/All switch — there is no list of resolved activity comments to
+send people to yet (phase 06).
 
-It does **not** get URL persistence. Unlike phase 02's dashboard filters, nobody sends a colleague a
-link to a panel state.
+### Mobile author filter — deferred
 
-### Mobile panel filters — author and resolved status
-
-The vision discussion in #828 decided that the **mobile** panel gets filters, "for the moment only
-filterable by author, and resolved status". Mobile camp scope is the one place the panel lists every
-comment in the camp (phase 02), so it is the one place a long list needs narrowing. Resolved status is
-the Open/All toggle above, which exists on both viewports; this phase adds the **author** filter next to
-it, on mobile only.
-
-- One more field, `commentsState.authorFilter` (a user IRI or `null`), reset by `resetCommentsState()`
-  and cleared on close like `activityFilter` — a panel opening is the lifetime of every panel filter.
-- Options come from the authors present in the loaded collection, not from `campCollaborations`: a
-  former collaborator's comments must still be filterable, and nobody wants to pick an author with zero
-  comments.
-- It filters **threads by their root's author**. Filtering individual replies out of a thread would show
-  half a conversation.
-- `scopedComments` stays the single predicate for what is shown _and_ what the toggle counts — but the
-  author filter is a view filter applied inside the open panel, so it does **not** change the toggle's
-  count. It is unlike the badge-driven `activityFilter`, which is a scope and decides what the composer
-  posts to; the author filter decides nothing about writing.
-- Sorting stays `createTime` ascending (epic). The issue mentions "Filters/Sorting", but there is no
-  second order that makes sense for a chat-like list until phase 04's document order, and that one only
-  applies where the document is visible — i.e. not on mobile.
-
-Not on desktop: desktop camp scope holds only camp-level comments and orphans, and activity scope one
-activity's comments, both short. Add it there only when someone asks.
-
-**`CommentComposer.vue`** — gains an optional `parent` prop; when set, the POST body carries
-`parent: <iri>` and omits nothing else. `camp` and `activity` are still required and still arrive as
-props from the panel, which derives them from the route via `campFromRoute` / `activityFromRoute`.
-
-**`CommentCard.vue`** — the delete button on a root with replies must be disabled or absent, with a
-tooltip, matching the backend's refusal. Do not let the user discover the rule via a 409.
-
-## Files touched
-
-```
-api/src/Entity/Comment.php                                       modified
-api/src/State/CommentUpdateProcessor.php                         new
-api/migrations/schema/VersionYYYYMMDDHHMMSS.php                  new
-api/fixtures/comments.yml                                        +reply and resolved fixtures
-api/src/Entity/BelongsToActivityInterface.php                    new
-api/src/Util/GetActivityFromContentNodeTrait.php                 new
-api/migrations/dev-data/data.sql                                 regenerated (+threads, +resolved)
-api/migrations/dev-data/Version<new>.php                         new (+ previous one gutted)
-api/tests/Api/Comments/UpdateCommentTest.php                     rewritten (currently asserts 405)
-api/tests/Api/Comments/CreateCommentTest.php                     +reply cases
-api/tests/Api/Comments/DeleteCommentTest.php                     +root-with-replies, +manager-denied
-api/src/Validator/Comment/AssertBelongsToSameActivity.php        new
-api/src/Validator/Comment/AssertBelongsToSameActivityValidator.php  new
-api/tests/Validator/Comment/AssertBelongsToSameActivityValidatorTest.php  new
-api/tests/Api/SnapshotTests/__snapshots__/                       all three regenerated
-
-frontend/src/components/comments/CommentThread.vue               new
-frontend/src/components/comments/CommentsList.vue                modified
-frontend/src/components/comments/CommentComposer.vue             modified
-frontend/src/components/comments/CommentCard.vue                 modified
-frontend/src/locales/en.json                                     +keys
-frontend/src/components/comments/__tests__/CommentThread.spec.js new
-```
+The vision discussion in #828 asks for filters on the mobile panel, "for the moment only by author, and
+resolved status". Resolved status is the Open/All switch. An author filter was built and **removed
+again**: with threads it is unclear whether it should match the root's author or anyone in the thread,
+and both readings confused. Decide that before building it again.
 
 ## Tests
 
 ```bash
 docker compose exec api composer test tests/Api/Comments/
+docker compose exec api composer test tests/Validator/Comment/
+docker compose exec api composer test tests/Api/CampCollaborations/DeleteCampCollaborationTest.php
 docker compose exec api composer cs-fix
 docker compose exec api composer psalm
 docker compose exec api composer phpstan
 docker compose exec frontend npm run test:unit
 ```
 
-`AssertBelongsToSameActivityValidatorTest` follows the house `ConstraintValidatorTestCase` shape
-(see `api/tests/Validator/AssertBelongsToSameCampValidatorTest.php`): the six canonical cases —
-`testExpectsMatchingAnnotation`, value/object type guards, `testNullIsValid`, `testValid`,
-`testInvalid` — plus, importantly, **the null-on-both-sides case**, which is the one an inline
-expression could not have pinned.
+**Snapshots:** regenerate with `composer update-snapshots`, then re-dump the OpenAPI snapshot with the
+test's own `Yaml::dump` arguments (indent 2) — the spatie driver writes indent 4, which the test does not
+match. Read the OpenAPI diff: it is the contract.
 
-API cases to add:
+API cases covered:
 
-- reply creation succeeds; nesting a reply under a reply → 422 `parent: Cannot reply to a reply.`;
-- a reply whose `activity` differs from its parent's → 422 on `propertyPath: parent`;
-- a reply whose parent is in a different camp → 422 (the free `AssertBelongsToSameCamp`);
-- PATCH `{"resolved": true}` as a collaborator → 200, `resolvedAt` and `resolvedBy` set;
-- PATCH `{"resolved": false}` → both cleared;
-- PATCH `{"textHtml": "..."}` → 400 "Extra attributes are not allowed" (proves no-edit holds);
-- PATCH as an unrelated user → 403/404;
-- DELETE a root that has replies → refused;
-- DELETE another user's comment as a camp manager → **403** (there is no moderation delete; the
-  existing `DeleteCommentTest` already asserts this — keep that assertion, do not relax it).
-
-**Snapshots:** all three files under `api/tests/Api/SnapshotTests/__snapshots__/` break on the
-serialization-group change. Regenerate deliberately and read the OpenAPI diff — it is the
-contract.
+- a reply with only `parent` and `textHtml` gets camp, activity and `orphanDescription` of its parent;
+  repeating the parent's anchor is fine, contradicting it → 422 on `parent`;
+- nesting a reply under a reply → 422 `Cannot reply to a reply.`; a parent in another camp → 422;
+- the author is the current user's collaboration;
+- PATCH `{"resolved": true}` as guest / member / manager → 200; again → original resolver kept;
+  `{"resolved": false}` clears it; on a reply → 422; `textHtml`, `parent`, `resolvedAt` → 400;
+- DELETE a root with replies by others → 422; with only own replies → 204, replies gone; another
+  user's comment as camp manager → 403; a comment whose author left → 403;
+- deleting an inactive collaboration saves the name on authored and resolved comments.
 
 ## Verification
 
-1. As member A, comment on an activity. As member B, reply. Both see the thread with the reply
-   indented under the root.
-2. As B, resolve the thread. It disappears from the default "Open" view for both. Switch to "All":
-   it is there **in full** — root and every reply, same as an open thread — with an indicator naming
-   B and the time, plus a reopen control. Nothing is truncated to a summary line.
-3. Reopen it. It returns to the "Open" list with the reply intact.
-4. As A, try to delete the root. The control is disabled with an explanation; deleting the reply
-   first then the root works.
-5. As the camp manager, try to delete B's reply. There is no delete control, and a hand-crafted
-   `DELETE` returns 403.
-6. As a camp guest, confirm you can reply and resolve (a guest is a `CAMP_COLLABORATOR`).
-7. `curl -X PATCH` a comment with `{"textHtml": "hacked"}` and confirm 400.
-8. As B, resolve a long thread of A's. Switch to "All" and read the whole exchange without expanding
-   anything — that is the case the no-collapse rule exists for — then reopen it from there. Nothing
-   was destroyed.
-9. On the dashboard, resolve every thread on one activity. Its count badge disappears; resolve only
-   some and the count drops accordingly.
-
-## Open questions
-
-None — see the decisions above.
+1. As member A, comment on an activity. As member B, reply. Both see the thread.
+2. As B, resolve the thread. It disappears from "Offen" for both; under "Alle" it is there in full with
+   B's name and the time, and a reopen control.
+3. Reopen it. It returns to "Offen".
+4. As A, reply to your own comment, then delete the root: the dialog warns that your reply goes too,
+   and the thread disappears. With B's reply in it, delete is disabled with an explanation.
+5. As the camp manager, try to delete B's reply: no control, and a hand-crafted `DELETE` returns 403.
+6. As a guest, reply and resolve.
+7. `curl -X PATCH` a comment with `{"textHtml": "hacked"}` → 400.
+8. Set a collaborator to inactive and delete the collaboration: their comments keep their name.
+9. On the dashboard, resolve every thread on one activity: its badge disappears.
 
 ## Done criteria
 
-- [ ] A reply can be created, read and deleted; nesting is rejected by the API with a clear message.
-- [ ] A thread can be resolved and reopened by any collaborator; the resolver is recorded.
-- [ ] PATCH cannot change `textHtml`.
-- [ ] Deleting a root with replies is refused by the API and prevented in the UI.
-- [ ] No moderation delete was added — `Delete` is still `object.author === user`, and the existing
-      "manager cannot delete someone else's comment" assertion still passes.
-- [ ] "Reply must share its parent's activity" is a custom validator in
-      `api/src/Validator/Comment/`, unit-tested in the house `ConstraintValidatorTestCase` style
-      including the null-on-both-sides case. No-nesting stayed a one-line `Assert\Expression`.
-- [ ] No `parent` `SearchFilter` was added.
-- [ ] Resolved threads are hidden in the "Open" view and rendered **in full** under "All", with a
-      resolver indicator and a reopen control — never collapsed to a summary and never greyed in
-      place. The dashboard badge counts open threads only.
-- [ ] All three snapshot files regenerated; `composer test tests/Api/Comments/` green.
-- [ ] On mobile, the panel can be filtered by author (by thread root) and by resolved status; the
-      author filter is cleared on close and on camp change.
-- [ ] Detached comments are never resolved automatically (vision G).
+- [x] A reply can be created with only `parent` and text, read and deleted; nesting is rejected.
+- [x] A thread can be resolved and reopened by any collaborator; the resolver is recorded.
+- [x] PATCH cannot change `textHtml`.
+- [x] A root with replies by others cannot be deleted (API and UI); one with only own replies can,
+      together with them.
+- [x] No moderation delete.
+- [x] Authors and resolvers are camp collaborations; their name survives their removal from the camp.
+- [x] One schema migration, one dev-data migration.
+- [x] No `parent` `SearchFilter`.
+- [x] Resolved threads are hidden under "Offen" and rendered in full under "Alle".
+- [x] All three snapshot files regenerated; `composer test tests/Api/Comments/` green.
+- [x] Detached comments are never resolved automatically (vision G).
+- [ ] Mobile author filter — deferred, see above.

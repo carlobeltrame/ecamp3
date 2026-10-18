@@ -13,7 +13,7 @@ turns it on for **`dev`**; `staging` (an exact copy of prod, with production dat
 off until phase 02 ships, because until comments are discoverable from the dashboard the first
 production week generates "nobody replied to me" instead of usage.
 
-## Status (2026-10-17)
+## Status (2026-10-18)
 
 **On `devel`** — PR #10454 (`comments-frontend`) is merged, plus follow-ups by @manuelmeister and
 @carlobeltrame after the core team discussion:
@@ -57,10 +57,15 @@ used them. It lives on `filter-context-and-query-sync` for its own PR, which is 
 commented-activity filter. `comments-frontend-2` can be deleted once that PR is merged; `bd1bad55b`
 stays reachable through it until then, in case step 12 comes back.
 
+**On `comments-frontend-3`, not on `devel`** — phase 03 implemented: threads, resolve / reopen, the
+"Offen" / "Alle" switch, and comment authorship moved from users to camp collaborations (with a name
+snapshot when someone leaves the camp). The mobile author filter was built and removed again until
+its behaviour with threads is decided. See [03-conversations.md](03-conversations.md).
+
 **Open, in roadmap order:** step 2's rollout (dev, then staging and prod — no longer waiting for step
-12), the `filter-context-and-query-sync` PR, phase 03
-(threads, resolve, plus the mobile filters from the issue), the context-snapshot change (see "Context
-snapshots" below), phase 04, phase 06 (now including the in-camp overview), phase 05.
+12), the `filter-context-and-query-sync` PR, merging phase 03, the mobile author filter, the
+context-snapshot change (see "Context snapshots" below), phase 04, phase 06 (now including the in-camp
+overview), phase 05.
 
 ## Decisions from the issue
 
@@ -87,7 +92,8 @@ The offline vision discussion (@carlobeltrame, @manuelmeister) and the core meet
 Further decisions from the same threads:
 
 - **Mobile panel is fullscreen** (decided; done). It also gets **filters**, for now only **by author and
-  by resolved status** — see phase 03, since resolved status only exists from there.
+  by resolved status** — see phase 03. Resolved status is done; the author filter is deferred until it
+  is decided whether it matches a thread's root author or anyone in the thread.
 - **Comments on an activity cannot have a period reference.** A period reference is possible later as
   its own anchor level (a comment about a whole period, `activity === null`), not as an extra property on
   activity comments. Not planned in any phase.
@@ -124,8 +130,8 @@ qualify for federal subsidies. That audience drives two rules that run against e
 | [05-notifications.md](05-notifications.md)             | 8, 9, 11       | large; **not planned yet, deliberately**  |
 | [06-cross-camp-overview.md](06-cross-camp-overview.md) | 13, vision J/K | none                                      |
 
-Phase status: 01 done except the `dev` rollout; 02 steps 3 and 4 done, step 12 deferred; 03–06 not
-started. See "Status" above.
+Phase status: 01 done except the `dev` rollout; 02 steps 3 and 4 done, step 12 deferred; 03
+implemented, not merged; 04–06 not started. See "Status" above.
 
 ## Roadmap
 
@@ -242,12 +248,14 @@ migration of existing rows.
 comment
   camp           Camp             NOT NULL, ON DELETE CASCADE     exists
   activity       ?Activity        nullable, no DB cascade         exists
-  author         User             NOT NULL, writable:false        exists
+  author         ?CampCollab.     ON DELETE SET NULL, read-only   phase 03 (was User, NOT NULL)
+  authorDisplayName ?text         saved when the author leaves    phase 03
   textHtml       string           max 1024, HTMLPurifier          exists
   orphanDescription ?string       max 32, writable:false          exists; replaced by activityContext (proposed)
-  parent         ?Comment         phase 03
-  resolvedAt     ?datetime        phase 03
-  resolvedBy     ?User            phase 03
+  parent         ?Comment         replies copy the root's anchor  phase 03
+  resolvedAt     ?datetime        set by PATCH {resolved}         phase 03
+  resolvedBy     ?CampCollab.     ON DELETE SET NULL              phase 03
+  resolvedByDisplayName ?text     saved when the resolver leaves  phase 03
   activityContext ?text           snapshot at creation            proposed, see "Context snapshots"
   contentNode    ?ContentNode     ON DELETE SET NULL              phase 04
   contentNodeContext ?text        snapshot at creation            phase 04 (proposed name)
@@ -321,6 +329,15 @@ Three rules that are easy to get wrong:
 **Denormalise `activity` onto every anchor.** This is the single most valuable decision in the
 model. It keeps `GET /activities/{id}/comments` and `Activity::$comments` working untouched, and
 keeps "does this activity have comments" one indexed query instead of a tree walk.
+
+**Replies carry the full anchor of their thread** — the same rule one level further. Every field in
+`Comment::ANCHOR_FIELDS` is copied from the parent onto each reply by `CommentCreateProcessor`; the client
+posts a reply as `{ parent, textHtml }` and `AssertSameAnchorAsParent` rejects contradicting values. So a
+future "comments on this schedule entry" count (e.g. on the picasso) stays one indexed query without a
+join through `parent`. Each new anchor type adds its fields to that list. See phase 03.
+
+**Authorship is a camp collaboration, not a user** (phase 03), so camp-specific avatar overrides apply.
+When a collaboration is deleted, the author's name is saved on the comment first.
 
 **Category content nodes are not commentable.** Categories carry prototype content-node trees whose
 nodes have `activity === null`; we do not need comments on those. That lets the anchor rule be
@@ -464,8 +481,10 @@ camp would stay disallowed regardless.
 `textHtml` in any update group. Delete-and-repost is the only way to change a comment, and only its
 author can do that.
 
-**4. Deleting a root comment that has replies is refused. — decided: refuse.**
+**4. Deleting a root comment that has replies by others is refused. — decided: refuse.**
 Cascading would let one author destroy other people's replies, which the traceability rule forbids.
+A root whose replies are all by its own author is deleted together with them (refined in phase 03):
+that destroys nobody else's comment.
 **And there is no moderation delete**: a camp manager may not delete another person's comment
 either. The reference fork adds both cascade and manager-delete; do not copy either.
 
@@ -551,7 +570,7 @@ each of them is easy to reintroduce by accident:
 | the fork                                                   | us                                                               |
 | ---------------------------------------------------------- | ---------------------------------------------------------------- |
 | `Comment::$contentNode` join column `onDelete: 'cascade'`  | `set null` — the thread survives as an orphan (phase 04)         |
-| `Comment::$parent` join column `onDelete: 'cascade'`       | deleting a root with replies is refused (decision 4)             |
+| `Comment::$parent` join column `onDelete: 'cascade'`       | refused while others replied; own replies go along (decision 4)  |
 | `Delete` also allows `CAMP_MANAGER`                        | author only — traceability (phase 03)                            |
 | `PATCH` can edit `textHtml`, tracked by `editedAt`         | no editing, ever (decision 3)                                    |
 | item `Get` allows `CAMP_IS_PUBLIC`                         | removed (decision 2, phase 01)                                   |
