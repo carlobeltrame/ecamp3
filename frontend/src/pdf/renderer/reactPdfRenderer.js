@@ -13,12 +13,18 @@ export async function renderPdfStructureToReactPdf(
   await onProgress('layoutDocument')
 
   let page = 0
-  globalThis.addEventListener('layoutPage', async () => {
+  const onLayoutPage = async () => {
     page++
     await onProgress('layoutPage', { page })
-  })
+  }
+  globalThis.addEventListener('layoutPage', onLayoutPage)
 
-  const layout = await layoutDocument(pdfStructure, fontStore)
+  let layout
+  try {
+    layout = await layoutDocument(pdfStructure, fontStore)
+  } finally {
+    globalThis.removeEventListener('layoutPage', onLayoutPage)
+  }
 
   const totalPages = layout.children.length
   page = 0

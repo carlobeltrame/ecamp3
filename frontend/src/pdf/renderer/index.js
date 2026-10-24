@@ -35,8 +35,11 @@ const pdf = (root, props, onProgress) => {
     })
   }
 
+  const toStream = () => render()
+
   return {
     toBlob,
+    toStream,
   }
 }
 

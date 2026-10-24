@@ -78,7 +78,7 @@ export default {
           }
         })
         .filter((leaderName) => leaderName.length)
-      if ('Intl' in self && 'ListFormat' in Intl) {
+      if ('Intl' in globalThis && 'ListFormat' in Intl) {
         return new Intl.ListFormat(this.locale, { style: 'short' }).format(leaderNames)
       }
       return leaderNames.join(', ')

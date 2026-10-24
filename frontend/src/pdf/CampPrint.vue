@@ -86,17 +86,7 @@ const registerFonts = async () => {
 
   Font.registerEmojiSource({
     withVariationSelectors: true,
-    builder(code) {
-      // If the code point does not contain 200d, remove any fe0f
-      // https://github.com/twitter/twemoji/issues/419#issuecomment-637360325
-      const filename = code.includes('200d')
-        ? code
-        : code
-            .split('-')
-            .filter((part) => part && part !== 'fe0f')
-            .join('-')
-      return '/twemoji/assets/72x72/' + filename + '.png'
-    },
+    builder: twemojiPath,
   })
 
   return await Promise.all([
@@ -109,8 +99,23 @@ const registerFonts = async () => {
   ])
 }
 
-export const prepare = async (config) => {
-  return await registerFonts(config)
+export const twemojiPath = (code) => {
+  // If the code point does not contain 200d, remove any fe0f
+  // https://github.com/twitter/twemoji/issues/419#issuecomment-637360325
+  const filename = code.includes('200d')
+    ? code
+    : code
+        .split('-')
+        .filter((part) => part && part !== 'fe0f')
+        .join('-')
+  return '/twemoji/assets/72x72/' + filename + '.png'
+}
+
+let prepared = null
+
+export const prepare = (config) => {
+  prepared ??= registerFonts(config)
+  return prepared
 }
 </script>
 <style lang="react-pdf">
