@@ -15,6 +15,8 @@
     "start": "vite --host 0.0.0.0",
     "dev": "vite --host 0.0.0.0",
     "test:unit": "vitest run --coverage",
+    "test:pdf-server": "vitest run --config pdf-server/vitest.config.js",
+    "pdf-server:build": "vite build --config pdf-server/vite.config.js",
     "test:unit:debug": "node --inspect-brk=0.0.0.0:9229 ./node_modules/.bin/vitest --no-cache --runInBand",
     "test:unit:watch": "vitest --watch",
     "postinstall": "./scripts/install-twemoji.sh && patch-package"

@@ -187,6 +187,7 @@ export default defineConfig(({ mode }) => ({
   },
   test: {
     environment: 'jsdom',
+    exclude: [...configDefaults.exclude, 'pdf-server/**'],
     globalSetup: './tests/globalSetup.js',
     setupFiles: './tests/setup.js',
     maxWorkers: 1,

@@ -3,6 +3,7 @@ node_modules
 /components.d.ts
 /data
 /dist
+/pdf-server/dist
 
 selenium-debug.log
 
