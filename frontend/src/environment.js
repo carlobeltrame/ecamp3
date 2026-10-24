@@ -9,6 +9,7 @@ export function getEnv() {
     API_ROOT_URL: env.VITE_API_ROOT_URL ?? '/api',
     COOKIE_PREFIX: env.VITE_COOKIE_PREFIX ?? 'localhost_',
     PRINT_URL: env.VITE_PRINT_URL ?? '/print',
+    PDF_SERVER_URL: env.VITE_PDF_SERVER_URL ?? '',
     SENTRY_FRONTEND_DSN: env.VITE_SENTRY_FRONTEND_DSN,
     SENTRY_ENVIRONMENT: env.VITE_SENTRY_ENVIRONMENT ?? 'local',
     DEPLOYMENT_TIME: env.VITE_DEPLOYMENT_TIME ?? '',

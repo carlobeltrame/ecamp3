@@ -7,6 +7,7 @@ import { getEnv } from '@/environment.js'
 import * as Sentry from '@sentry/browser'
 
 const PRINT_URL = getEnv().PRINT_URL
+const PDF_SERVER_URL = getEnv().PDF_SERVER_URL
 
 export const generatePdf = async (data, onProgress) => {
   await prepareInMainThread(data.config)
@@ -36,6 +37,9 @@ export const generatePdf = async (data, onProgress) => {
 }
 
 async function dispatchRenderPdf(data, serializableData, onProgress) {
+  if (PDF_SERVER_URL) {
+    return renderPdfOnServer(serializableData, onProgress)
+  }
   if (data.renderInWorker) {
     // ComlinkWorker is provided by vite-plugin-comlink
     // eslint-disable-next-line no-undef
@@ -43,6 +47,27 @@ async function dispatchRenderPdf(data, serializableData, onProgress) {
     return instance.renderPdfInWorker(serializableData, proxy(onProgress))
   } else {
     return (await import('./renderPdf.js')).renderPdf(serializableData, onProgress)
+  }
+}
+
+async function renderPdfOnServer(serializableData, onProgress) {
+  await onProgress('renderingOnServer')
+  try {
+    const response = await axios({
+      baseURL: null,
+      method: 'post',
+      url: `${PDF_SERVER_URL}/render`,
+      data: serializableData,
+      responseType: 'blob',
+      withCredentials: false,
+    })
+    return {
+      filename: serializableData.config.documentName,
+      blob: response.data,
+      error: null,
+    }
+  } catch (error) {
+    return { filename: null, blob: null, error: `Error in PDF server: ${error.message}` }
   }
 }
 

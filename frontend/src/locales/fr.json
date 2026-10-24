@@ -486,6 +486,7 @@
             "layoutDocument": "Calcul de la mise en page du document…",
             "layoutPage": "Calcul de la mise en page de la page {page}…",
             "renderingPdfPage": "Rendu du pdf, page {page} sur {totalPages}…",
+            "renderingOnServer": "Rendu du pdf sur le serveur…",
             "downloadingPdf": "Téléchargement du pdf en cours…",
             "done": "Terminé",
             "failed": "Echec"

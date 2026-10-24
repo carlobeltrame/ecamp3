@@ -514,6 +514,7 @@
             "layoutDocument": "Berechne Dokument-Layout…",
             "layoutPage": "Berechne Layout von Seite {page}…",
             "renderingPdfPage": "Rendere PDF-Seite {page} von {totalPages}…",
+            "renderingOnServer": "Rendere PDF auf dem Server…",
             "downloadingPdf": "Lade die PDF-Datei herunter…",
             "done": "Fertig",
             "failed": "Abgebrochen"
