@@ -128,6 +128,26 @@ services:
     command: ./docker-setup.sh
     stop_signal: SIGKILL
 
+  pdf-server:
+    image: node:24.22.1
+    container_name: 'ecamp3-pdf-server'
+    user: ${USER_ID:-1000}
+    depends_on:
+      - frontend
+    volumes:
+      - ./frontend:/app:delegated
+      - ./common:/common:delegated
+      - ./.cache/npm:/home/node/.npm/_cacache:delegated
+    environment:
+      - NPM_CONFIG_UPDATE_NOTIFIER=false
+      - NPM_CONFIG_CACHE=/home/node/.npm
+      - PDF_SERVER_PORT=3006
+      - PDF_SERVER_WORKERS=${PDF_SERVER_WORKERS:-2}
+      - CI=${CI:-}
+    working_dir: /app
+    command: ./pdf-server/docker-setup.sh
+    stop_signal: SIGKILL
+
   database:
     image: postgres:18-alpine
     container_name: 'ecamp3-database'
@@ -226,6 +246,7 @@ services:
       - mock-oauth2
       - http-cache
       - print
+      - pdf-server
       - mail
       - pg-admin
     ports:

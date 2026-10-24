@@ -34,6 +34,12 @@ http:
       rule: 'PathPrefix(`/print`)'
       priority: 50
       service: print
+    web-pdf-server:
+      entryPoints: [web]
+      rule: 'PathPrefix(`/pdf-server/`)'
+      priority: 50
+      middlewares: [pdf-server-prefix]
+      service: pdf-server
     web-mail:
       entryPoints: [web]
       rule: 'PathPrefix(`/mail`)'
@@ -73,6 +79,12 @@ http:
       rule: 'PathPrefix(`/print`)'
       priority: 50
       service: print
+    cached-pdf-server:
+      entryPoints: [cached]
+      rule: 'PathPrefix(`/pdf-server/`)'
+      priority: 50
+      middlewares: [pdf-server-prefix]
+      service: pdf-server
     cached-mail:
       entryPoints: [cached]
       rule: 'PathPrefix(`/mail`)'
@@ -107,6 +119,9 @@ http:
     mock-prefix:
       stripPrefix:
         prefixes: [/mock-auth]
+    pdf-server-prefix:
+      stripPrefix:
+        prefixes: [/pdf-server]
     mock-authorize-rewrite:
       replacePathRegex:
         regex: '^/mock-auth/([^/]+)/oauth/authorize(.*)$'
@@ -141,6 +156,10 @@ http:
       loadBalancer:
         servers:
           - url: http://print:3003
+    pdf-server:
+      loadBalancer:
+        servers:
+          - url: http://pdf-server:3006
     mail:
       loadBalancer:
         servers:
