@@ -14,6 +14,11 @@
   "global": {
     "language": "Rumantsch (Battasendas)"
   },
+  "print": {
+    "story": {
+      "title": "Fil cotschen"
+    }
+  },
   "views": {
     "camp": {
       "story": {

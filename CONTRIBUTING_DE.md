@@ -99,12 +99,6 @@ Alternativ kannst du
   # API/PHP Dateien in einem bereits laufenden Container formatieren
   docker compose exec php composer cs-fix
 
-  # Print Dateien in einem bereits laufenden Container formatieren
-  docker compose exec print npm run lint
-
-  # PDF Dateien in einem bereits laufenden Container formatieren
-  docker compose exec pdf npm run lint
-
   # E2E Dateien in einem bereits laufenden Container formatieren
   docker compose run --rm --entrypoint="npm run lint" e2e
   ```
@@ -114,8 +108,6 @@ Alternativ kannst du
   ```shell
   docker compose run --rm frontend npm run lint
   docker compose run --rm php composer cs-fix
-  docker compose run --rm print npm run lint
-  docker compose run --rm pdf npm run lint
   ```
 
   </details>

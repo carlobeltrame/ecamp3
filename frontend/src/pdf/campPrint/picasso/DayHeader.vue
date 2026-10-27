@@ -15,7 +15,7 @@ import PdfComponent from '@/pdf/PdfComponent.js'
 import {
   dayResponsiblesCommaSeparated,
   filterDayResponsiblesByDay,
-} from '../../../common/helpers/dayResponsibles.js'
+} from '@/helpers/dayResponsibles.js'
 
 export default {
   name: 'DayHeader',

@@ -155,14 +155,7 @@ export default defineConfig(({ mode }) => ({
           'node_modules/vue/dist/vue.runtime.esm-bundler.js'
         ),
       },
-
-      // find dayjs from commons
-      {
-        find: 'dayjs',
-        replacement: path.resolve(__dirname, 'node_modules', 'dayjs'),
-      },
     ],
-    preserveSymlinks: true,
   },
   css: {
     preprocessorOptions: {

@@ -55,7 +55,7 @@
 import PdfComponent from '@/pdf/PdfComponent.js'
 import CategoryLabel from '../CategoryLabel.vue'
 import Responsibles from '../Responsibles.vue'
-import { dayResponsiblesCommaSeparated } from '../../../common/helpers/dayResponsibles.js'
+import { dayResponsiblesCommaSeparated } from '@/helpers/dayResponsibles.js'
 
 export default {
   name: 'DaySummary',

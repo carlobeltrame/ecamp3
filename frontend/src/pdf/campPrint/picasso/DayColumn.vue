@@ -32,7 +32,7 @@ import {
   dayStart,
   dayEnd,
   positionStyles,
-} from '../../../common/helpers/picasso.js'
+} from '@/helpers/picasso.js'
 
 import keyBy from 'lodash-es/keyBy.js'
 
