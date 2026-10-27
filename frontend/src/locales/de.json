@@ -1196,6 +1196,8 @@
           "title": "Lagerinfos"
         },
         "print": {
+          "contactSupport": "melde dich bei unserem Support",
+          "mergedLayoutsInfo": "Wir haben unsere zwei PDF-Layouts zu einem zusammengeführt und das Beste aus beiden übernommen. Schau dir die neuen Druckeinstellungen an. Falls dir eine Funktion fehlt, die es vorher gab, {supportLink}.",
           "title": "Lager drucken"
         },
         "sideBarAdmin": {

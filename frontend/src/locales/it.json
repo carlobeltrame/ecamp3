@@ -1003,6 +1003,8 @@
           "title": "Info sul campo"
         },
         "print": {
+          "contactSupport": "contatta il nostro supporto",
+          "mergedLayoutsInfo": "Abbiamo unito i nostri due layout PDF in uno solo, mantenendo il meglio di entrambi. Dai un'occhiata alle nuove impostazioni di stampa. Se ti manca una funzione che esisteva prima, {supportLink}.",
           "title": "Stampa il campo"
         },
         "sideBarAdmin": {

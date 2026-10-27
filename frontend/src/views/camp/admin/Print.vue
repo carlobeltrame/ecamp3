@@ -10,6 +10,15 @@ Basic layout for print preview
         {{ $t('global.button.reset') }}
       </v-btn>
     </template>
+    <v-alert type="info" variant="tonal" class="ma-4">
+      <i18n-t keypath="views.camp.admin.print.mergedLayoutsInfo" scope="global">
+        <template #supportLink>
+          <a :href="contactLink" target="_blank">
+            {{ $t('views.camp.admin.print.contactSupport') }}
+          </a>
+        </template>
+      </i18n-t>
+    </v-alert>
     <print-configurator ref="printConfigurator" :camp="camp" />
   </content-card>
 </template>
@@ -17,6 +26,7 @@ Basic layout for print preview
 <script>
 import ContentCard from '@/components/layout/ContentCard.vue'
 import PrintConfigurator from '@/components/print/PrintConfigurator.vue'
+import { getEnv } from '@/environment.js'
 
 export default {
   name: 'CampAdminPrint',
@@ -27,13 +37,15 @@ export default {
   props: {
     camp: { type: Object, required: true },
   },
-  data() {
-    return {}
-  },
   head() {
     return {
       title: this.$t('views.camp.admin.print.title'),
     }
+  },
+  computed: {
+    contactLink() {
+      return getEnv().CONTACT_LINK
+    },
   },
 }
 </script>
