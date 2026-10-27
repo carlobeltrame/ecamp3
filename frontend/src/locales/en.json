@@ -1174,6 +1174,8 @@
           "title": "Camp infos"
         },
         "print": {
+          "contactSupport": "contact our support",
+          "mergedLayoutsInfo": "We have merged our two PDF layouts into one and kept the best of both. Have a look at the new print settings. If you miss a feature that was available before, please {supportLink}.",
           "title": "Print camp"
         },
         "sideBarAdmin": {

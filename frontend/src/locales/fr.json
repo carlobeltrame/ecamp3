@@ -1179,6 +1179,8 @@
           "title": "Infos sur le camp"
         },
         "print": {
+          "contactSupport": "contacte notre support",
+          "mergedLayoutsInfo": "Nous avons fusionné nos deux mises en page PDF en une seule et gardé le meilleur des deux. Découvre les nouveaux paramètres d'impression. S'il te manque une fonctionnalité qui existait auparavant, {supportLink}.",
           "title": "Imprimer le camp"
         },
         "sideBarAdmin": {
