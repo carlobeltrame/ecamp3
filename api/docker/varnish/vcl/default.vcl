@@ -59,7 +59,7 @@ sub vcl_hash {
   # Include JWT cookies in cache hash 
   hash_data(var.get("JWT"));
 
-  # using URL (=path), but not using Host/ServerIP; this allows to share cache between print & normal API calls
+  # using URL (=path), but not using Host/ServerIP
   hash_data(req.url);
 
   return(lookup);

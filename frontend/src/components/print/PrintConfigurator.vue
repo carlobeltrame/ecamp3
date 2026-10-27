@@ -90,42 +90,26 @@
     </PagesOverview>
 
     <v-card-text class="e-button-container">
-      <DownloadNuxtPdfButton :config="cnf" />
-      <DownloadClientPdfButton :config="cnf" />
+      <DownloadPdfButton :config="cnf" />
     </v-card-text>
 
     <template v-if="isDev">
       <v-tabs v-model="previewTab" :mandatory="false" class="px-4">
-        <v-tab value="nuxt">Nuxt preview</v-tab>
-        <v-tab value="client">Client print preview</v-tab>
+        <v-tab value="pdf">PDF preview</v-tab>
       </v-tabs>
-      <v-tabs-window v-if="previewTab" v-model="previewTab">
-        <v-tabs-window-item value="nuxt">
-          <print-preview-nuxt
-            v-if="previewTab === 'nuxt'"
-            :config="cnf"
-            width="100%"
-            height="600"
-            class="my-4"
-          />
-        </v-tabs-window-item>
-        <v-tabs-window-item value="client">
-          <print-preview-client
-            v-if="previewTab === 'client'"
-            :config="cnf"
-            width="100%"
-            height="600"
-            class="my-4"
-          />
-        </v-tabs-window-item>
-      </v-tabs-window>
+      <print-preview
+        v-if="previewTab === 'pdf'"
+        :config="cnf"
+        width="100%"
+        height="600"
+        class="my-4"
+      />
     </template>
   </div>
 </template>
 
 <script>
-import PrintPreviewClient from './print-client/PrintPreviewClient.vue'
-import PrintPreviewNuxt from './print-nuxt/PrintPreviewNuxt.vue'
+import PrintPreview from './generator/PrintPreview.vue'
 import CoverConfig from './config/CoverConfig.vue'
 import PicassoConfig from './config/PicassoConfig.vue'
 import SummaryConfig from './config/SummaryConfig.vue'
@@ -135,26 +119,23 @@ import ActivityListConfig from './config/ActivityListConfig.vue'
 import TocConfig from './config/TocConfig.vue'
 import PagesOverview from './configurator/PagesOverview.vue'
 import PagesConfig from './configurator/PagesConfig.vue'
-import DownloadNuxtPdfButton from '@/components/print/print-nuxt/DownloadNuxtPdfButton.vue'
-import DownloadClientPdfButton from '@/components/print/print-client/DownloadClientPdfButton.vue'
+import DownloadPdfButton from '@/components/print/generator/DownloadPdfButton.vue'
 import { getEnv } from '@/environment.js'
 import { cloneDeep } from 'lodash-es'
 import { componentI18n } from '../../plugins/i18n/index.js'
 import repairConfig from './repairPrintConfig.js'
 import StoryConfig from '@/components/print/config/StoryConfig.vue'
 import SafetyConsiderationsConfig from '@/components/print/config/SafetyConsiderationsConfig.vue'
-import campShortTitle from '@/common/helpers/campShortTitle.js'
+import campShortTitle from '@/helpers/campShortTitle.js'
 import jsonStringifyReactiveValue from '@/components/print/jsonStringifyReactiveValue.js'
 
 export default {
   name: 'PrintConfigurator',
   components: {
-    DownloadClientPdfButton,
-    DownloadNuxtPdfButton,
+    DownloadPdfButton,
     PagesConfig,
     PagesOverview,
-    PrintPreviewClient,
-    PrintPreviewNuxt,
+    PrintPreview,
     CoverConfig,
     PicassoConfig,
     SummaryConfig,

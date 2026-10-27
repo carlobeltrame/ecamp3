@@ -23,6 +23,11 @@
   "global": {
     "language": "Français (Scout)"
   },
+  "print": {
+    "story": {
+      "title": "Fil rouge"
+    }
+  },
   "views": {
     "camp": {
       "story": {

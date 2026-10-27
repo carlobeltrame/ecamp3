@@ -20,7 +20,7 @@ test.describe('Client print test', { tag: '@mature' }, () => {
     await page.locator('a:has-text("Drucken")').click()
 
     const downloadPromise = page.waitForEvent('download')
-    await page.locator('button:has-text("PDF herunterladen (Layout #2)")').click()
+    await page.locator('button:has-text("PDF herunterladen")').click()
     const download = await downloadPromise
 
     const path = await download.path()

@@ -277,23 +277,23 @@
           }
         }
       },
-      "localPdfDownloadButton": {
-        "error": "Insatge n'ha betg funcziunà. Emprova anc ina giada u rechargia la pagina."
-      },
-      "printClient": {
-        "downloadClientPdfButton": {
-          "label": "Telechargiar il PDF (layout #2)"
+      "generator": {
+        "downloadPdfButton": {
+          "label": "Telechargiar il PDF"
         },
-        "downloadClientPdfListItem": {
-          "label": "Telechargiar il PDF (layout #2)"
+        "downloadPdfListItem": {
+          "label": "Telechargiar il PDF"
         },
         "generatePdfMixin": {
           "error": "Insatge n'ha betg funcziunà. Emprova anc ina giada u rechargia la pagina."
         },
-        "printPreviewClient": {
+        "printPreview": {
           "previewError": "Insatge n'ha betg funcziunà. Emprova anc ina giada cun auters parameters da stampa u rechargia la pagina.",
           "previewIframeTitle": "Prevista da stampa"
         }
+      },
+      "localPdfDownloadButton": {
+        "error": "Insatge n'ha betg funcziunà. Emprova anc ina giada u rechargia la pagina."
       },
       "printConfigurator": {
         "add": "Agiuntar cuntegn",
@@ -304,23 +304,6 @@
           "Program": "Program en detagl",
           "Story": "Fil cotschen",
           "Toc": "Tavla da cuntegn"
-        }
-      },
-      "printNuxt": {
-        "downloadNuxtPdfButton": {
-          "label": "Telechargiar il PDF (layout #1)"
-        },
-        "downloadNuxtPdfListItem": {
-          "label": "Telechargiar il PDF (layout #1)"
-        },
-        "generatePdfMixin": {
-          "error": "Insatge n'ha betg funcziunà. Emprova anc ina giada u rechargia la pagina.",
-          "queueFull": "Tut noss stampaders da PDF èn occupads per il mument. Emprova per plaschair pli tard anc ina giada."
-        },
-        "printPreviewNuxt": {
-          "openPreview": "Avrir la prevista en ina nova fanestra",
-          "previewError": "Insatge n'ha betg funcziunà. Emprova anc ina giada cun auters parameters da stampa u rechargia la pagina.",
-          "previewIframeTitle": "Prevista da stampa"
         }
       }
     },
@@ -391,6 +374,20 @@
         "newPasswordConfirmation": "Confirmar il nov pled-clav",
         "success": "Tes pled-clav è vegnì midà cun success.",
         "error": "D'ina errur èsi dà."
+      }
+    }
+  },
+  "entity": {
+    "profile": {
+      "fields": {
+        "abbreviation": "Abbreviaziun",
+        "color": "Colur",
+        "email": "Adressa dad e-mail",
+        "firstname": "Prenum",
+        "language": "Lingua",
+        "nickname": "Surnum",
+        "password": "Pled-clav",
+        "surname": "Num da famiglia"
       }
     }
   },
