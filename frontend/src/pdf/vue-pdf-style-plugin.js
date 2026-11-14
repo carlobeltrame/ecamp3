@@ -17,7 +17,7 @@ export const vuePdfStylePlugin = {
     if (!/vue&type=pdf-style/.test(id)) {
       return
     }
-    const transformedRules = transformCssRules(postcss.parse(code).nodes)
+    const transformedRules = parsePdfStyle(code)
     return {
       code: `export default (component) => {
         component.pdfStyle = ${JSON.stringify(transformedRules)};
@@ -26,6 +26,10 @@ export const vuePdfStylePlugin = {
       map: { mappings: '' },
     }
   },
+}
+
+export function parsePdfStyle(css) {
+  return transformCssRules(postcss.parse(css).nodes)
 }
 
 function transformReactPdfStyleBlocks(code) {

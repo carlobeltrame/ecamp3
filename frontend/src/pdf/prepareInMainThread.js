@@ -1,3 +1,5 @@
+import { isCustomSectionType } from '@/components/print/sections/customSectionType.js'
+
 export async function prepareInMainThread(config) {
   const picassoData = (config) => {
     const camp = config.apiGet(config.camp)
@@ -48,8 +50,10 @@ export async function prepareInMainThread(config) {
 
   const activityData = (config) => {
     if (
-      !config.contents.some((c) =>
-        ['Program', 'Activity', 'ActivityList'].includes(c.type)
+      !config.contents.some(
+        (c) =>
+          ['Program', 'Activity', 'ActivityList'].includes(c.type) ||
+          isCustomSectionType(c.type)
       )
     ) {
       return []

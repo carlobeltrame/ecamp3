@@ -18,7 +18,7 @@
           :entry="entry"
           :config="config"
         ></component>
-        <Text v-else>{{ entry.type }}</Text>
+        <TitleEntry v-else :id="`entry-${index}`" :type="entry.type" :config="config" />
       </template>
     </View>
   </Page>
@@ -33,11 +33,13 @@ import Activity from './entry/Activity.vue'
 import SafetyConsiderations from './entry/SafetyConsiderations.vue'
 import Story from './entry/Story.vue'
 import ActivityList from './entry/ActivityList.vue'
+import InsertPdf from './entry/InsertPdf.vue'
+import TitleEntry from './entry/TitleEntry.vue'
 import TocSectionStartMarker from '../TocSectionStartMarker.vue'
 
 export default {
   name: 'Cover',
-  components: { TocSectionStartMarker },
+  components: { TocSectionStartMarker, TitleEntry },
   extends: PdfComponent,
   props: {
     content: { type: Object, required: true },
@@ -54,6 +56,7 @@ export default {
         SafetyConsiderations,
         Story,
         ActivityList,
+        InsertPdf,
       }
     },
   },

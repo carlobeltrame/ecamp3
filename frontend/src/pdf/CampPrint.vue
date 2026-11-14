@@ -38,6 +38,9 @@ import SafetyConsiderations from '@/pdf/campPrint/summary/SafetyConsiderations.v
 import Program from '@/pdf/campPrint/program/Program.vue'
 import Activity from '@/pdf/campPrint/activity/Activity.vue'
 import ActivityList from '@/pdf/campPrint/activityList/ActivityList.vue'
+import EmptyPage from '@/pdf/campPrint/emptyPage/EmptyPage.vue'
+import NotesPage from '@/pdf/campPrint/notesPage/NotesPage.vue'
+import InsertPdf from '@/pdf/campPrint/insertPdf/InsertPdf.vue'
 import { wordHyphenation } from '@react-pdf/textkit'
 
 const originalHyphenationCallback = wordHyphenation()
@@ -53,6 +56,7 @@ export default {
   },
   props: {
     config: { type: Object, required: true },
+    customComponents: { type: Object, default: () => ({}) },
   },
   computed: {
     components() {
@@ -65,6 +69,10 @@ export default {
         Story,
         SafetyConsiderations,
         ActivityList,
+        EmptyPage,
+        NotesPage,
+        InsertPdf,
+        ...this.customComponents,
       }
     },
   },

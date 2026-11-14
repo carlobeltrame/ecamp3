@@ -1,162 +1,78 @@
 <template>
   <v-skeleton-loader v-if="loading" type="article" class="pa-4" />
-  <div v-else>
-    <PagesOverview v-model="cnf.contents" @update:model-value="onChange">
-      <template #item="{ element: content, index: idx }">
-        <PagesConfig
-          :title="$t('components.print.printConfigurator.config.' + content.type)"
-          :landscape="content.options.orientation === 'L'"
-          :multiple="
-            contentComponents[content.type].design.multiple ||
-            content.options?.periods?.length > 1
-          "
-          @remove="removeContent(idx)"
-        >
-          <component
-            :is="contentComponents[content.type]"
-            :model-value="content.options"
-            :camp="camp"
-            @update:model-value="onChangeContentConfig(idx, $event)"
-          />
-        </PagesConfig>
-      </template>
+  <div v-else class="e-print-configurator">
+    <div class="e-print-configurator__column">
+      <SectionList
+        :contents="cnf.contents"
+        :options="cnf.options"
+        :sections="sections"
+        :selected="selectedIndex"
+        @update:contents="reorderContents"
+        @update:selected="selectedIndex = $event"
+        @add="showAddSection = true"
+        @remove="removeContent"
+      />
+      <DownloadPdfButton :config="cnf" class="pa-4" />
+    </div>
 
-      <v-menu offset-y rounded="lg" offset-overflow>
-        <template #activator="{ props }">
-          <PagesConfig
-            id="page-config"
-            :title="$t('components.print.printConfigurator.add')"
-            multiple
-            template
-            v-bind="props"
-          />
-        </template>
-        <v-list>
-          <v-list-item
-            v-for="(component, idx) in contentComponents"
-            :key="idx"
-            @click="
-              addContent({
-                type: idx,
-                options: component.defaultOptions(camp),
-              })
-            "
-          >
-            <v-list-item-title>
-              {{ $t('components.print.printConfigurator.config.' + idx) }}
-            </v-list-item-title>
-          </v-list-item>
-        </v-list>
-      </v-menu>
+    <div class="e-print-configurator__column pa-4">
+      <SectionOptions
+        v-if="selectedContent"
+        :key="selectedIndex"
+        :content="selectedContent"
+        :section="sections[selectedContent.type]"
+        :camp="camp"
+        @update:options="onChangeContentConfig(selectedIndex, $event)"
+      />
+      <DocumentOptions v-else v-model="cnf.options" @update:model-value="onChange" />
+    </div>
 
-      <template #drawer>
-        <v-expansion-panels flat class="e-print-configurator__cnf">
-          <v-expansion-panel class="bg-transparent rounded-0">
-            <v-expansion-panel-title class="subtitle py-2"
-              >{{ $t('components.print.printConfigurator.options') }}
-            </v-expansion-panel-title>
-            <v-expansion-panel-text>
-              <e-checkbox
-                v-model="cnf.options.pageNumbers"
-                :label="$t('components.print.printConfigurator.pageNumbers')"
-                @update:model-value="onChange"
-              />
-              <e-checkbox
-                v-model="cnf.options.compact"
-                :label="$t('components.print.printConfigurator.compact')"
-                @update:model-value="onChange"
-              />
-              <e-select
-                v-model="cnf.options.pageSize"
-                class="mt-4"
-                :items="pageSizes"
-                :label="$t('components.print.printConfigurator.fontSize')"
-                @update:model-value="onChange"
-              />
-            </v-expansion-panel-text>
-          </v-expansion-panel>
-        </v-expansion-panels>
-        <v-expansion-panels v-if="isDev" flat class="e-print-configurator__cnf">
-          <v-expansion-panel class="bg-transparent rounded-0">
-            <v-expansion-panel-title class="subtitle py-2"
-              >View Print-Config
-            </v-expansion-panel-title>
-            <v-expansion-panel-text>
-              <pre style="font-size: 12px">{{ prettyConfig }}</pre>
-            </v-expansion-panel-text>
-          </v-expansion-panel>
-        </v-expansion-panels>
-      </template>
-    </PagesOverview>
+    <div class="e-print-configurator__column e-print-configurator__preview">
+      <div class="px-4 py-2 text-body-2 text-medium-emphasis">
+        {{ previewTitle }}
+      </div>
+      <PrintPreview
+        :config="previewConfig"
+        width="100%"
+        height="100%"
+        class="flex-grow-1"
+        @rendered="previewPageCount = $event.pageCount"
+      />
+    </div>
 
-    <v-card-text>
-      <DownloadPdfButton :config="cnf" />
-      <v-alert
-        variant="tonal"
-        border="start"
-        size="small"
-        color="info"
-        density="compact"
-        max-width="700"
-        class="mt-4"
-      >
-        <div class="text-blue-darken-3">
-          <h3>
-            <v-icon icon="mdi-information-outline" size="small" left />
-            {{ $t('components.print.printConfigurator.layoutInfoTitle') }}
-          </h3>
-          <i18n-t keypath="components.print.printConfigurator.layoutInfo" scope="global">
-            <template #contactLink>
-              <a
-                :href="contactLink"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="text-inherit"
-                >{{ $t('components.print.printConfigurator.contactLink') }}</a
-              >
-            </template>
-          </i18n-t>
-        </div>
-      </v-alert>
-    </v-card-text>
+    <PrintAssistant
+      ref="assistant"
+      class="e-print-configurator__column pa-4"
+      :camp="camp"
+      :config="cnf"
+      :sections="sections"
+      :set-config="setConfig"
+      @section-saved="selectSection"
+    />
 
-    <template v-if="isDev">
-      <v-tabs v-model="previewTab" :mandatory="false" class="px-4">
-        <v-tab value="preview">Print preview</v-tab>
-      </v-tabs>
-      <v-tabs-window v-if="previewTab" v-model="previewTab">
-        <v-tabs-window-item value="preview">
-          <print-preview
-            v-if="previewTab === 'preview'"
-            :config="cnf"
-            width="100%"
-            height="600"
-            class="my-4"
-          />
-        </v-tabs-window-item>
-      </v-tabs-window>
-    </template>
+    <DialogAddSection
+      v-model="showAddSection"
+      :sections="sections"
+      @add="addContent"
+      @delete="deleteSection"
+      @ask-assistant="$refs.assistant.focus()"
+    />
   </div>
 </template>
 
 <script>
 import PrintPreview from './generator/PrintPreview.vue'
-import CoverConfig from './config/CoverConfig.vue'
-import PicassoConfig from './config/PicassoConfig.vue'
-import SummaryConfig from './config/SummaryConfig.vue'
-import ProgramConfig from './config/ProgramConfig.vue'
-import ActivityConfig from './config/ActivityConfig.vue'
-import ActivityListConfig from './config/ActivityListConfig.vue'
-import TocConfig from './config/TocConfig.vue'
-import PagesOverview from './configurator/PagesOverview.vue'
-import PagesConfig from './configurator/PagesConfig.vue'
-import DownloadPdfButton from '@/components/print/generator/DownloadPdfButton.vue'
-import { getEnv } from '@/environment.js'
+import DownloadPdfButton from './generator/DownloadPdfButton.vue'
+import SectionList from './configurator/SectionList.vue'
+import SectionOptions from './configurator/SectionOptions.vue'
+import DocumentOptions from './configurator/DocumentOptions.vue'
+import DialogAddSection from './configurator/DialogAddSection.vue'
+import PrintAssistant from './assistant/PrintAssistant.vue'
+import { availableSections } from './sections/sections.js'
+import { deleteCustomSection } from './sections/customSections.js'
 import { cloneDeep } from 'lodash-es'
 import { componentI18n } from '../../plugins/i18n/index.js'
 import repairConfig from './repairPrintConfig.js'
-import StoryConfig from '@/components/print/config/StoryConfig.vue'
-import SafetyConsiderationsConfig from '@/components/print/config/SafetyConsiderationsConfig.vue'
 import campShortTitle from '@/helpers/campShortTitle.js'
 import jsonStringifyReactiveValue from '@/components/print/jsonStringifyReactiveValue.js'
 
@@ -164,16 +80,12 @@ export default {
   name: 'PrintConfigurator',
   components: {
     DownloadPdfButton,
-    PagesConfig,
-    PagesOverview,
     PrintPreview,
-    CoverConfig,
-    PicassoConfig,
-    SummaryConfig,
-    ProgramConfig,
-    ActivityConfig,
-    TocConfig,
-    ActivityListConfig,
+    SectionList,
+    SectionOptions,
+    DocumentOptions,
+    DialogAddSection,
+    PrintAssistant,
   },
   provide() {
     return {
@@ -190,6 +102,9 @@ export default {
     return {
       loading: true,
       cnf: null,
+      selectedIndex: null,
+      showAddSection: false,
+      previewPageCount: null,
       loadingEndpoints: {
         activities: true,
         categories: true,
@@ -199,25 +114,31 @@ export default {
         progressLabels: true,
         scheduleEntries: true,
       },
-      prettyConfig: '',
-      previewTab: null,
     }
   },
   computed: {
-    contactLink() {
-      return getEnv().CONTACT_LINK
+    sections() {
+      return availableSections(this.$t)
     },
-    contentComponents() {
-      return {
-        Cover: CoverConfig,
-        Picasso: PicassoConfig,
-        Story: StoryConfig,
-        SafetyConsiderations: SafetyConsiderationsConfig,
-        Program: ProgramConfig,
-        Activity: ActivityConfig,
-        Toc: TocConfig,
-        ActivityList: ActivityListConfig,
-      }
+    selectedContent() {
+      return this.cnf?.contents[this.selectedIndex] ?? null
+    },
+    previewConfig() {
+      return this.selectedContent
+        ? { ...this.cnf, contents: [this.selectedContent] }
+        : this.cnf
+    },
+    previewTitle() {
+      const title = this.selectedContent
+        ? this.sections[this.selectedContent.type]?.title
+        : this.$t('components.print.printConfigurator.wholeDocument')
+      return this.previewPageCount
+        ? this.$t(
+            'components.print.printConfigurator.previewPages',
+            { title, count: this.previewPageCount },
+            this.previewPageCount
+          )
+        : title
     },
     lang() {
       return this.$store.state.lang.language
@@ -237,15 +158,6 @@ export default {
         contents: this.defaultContents(),
       }
     },
-    pageSizes() {
-      return ['A5', 'A4', 'A3'].map((size) => ({
-        value: size,
-        text: this.$t(`components.print.printConfigurator.fontSizes.${size}`),
-      }))
-    },
-    isDev() {
-      return getEnv().FEATURE_DEVELOPER ?? false
-    },
   },
   watch: {
     lang: {
@@ -255,6 +167,9 @@ export default {
         this.onChange()
       },
       immediate: true,
+    },
+    previewConfig() {
+      this.previewPageCount = null
     },
   },
   async mounted() {
@@ -294,6 +209,12 @@ export default {
         this.onChange()
       }
     },
+    setConfig(config) {
+      this.cnf = this.repairConfig(config)
+      if (this.selectedIndex >= this.cnf.contents.length) this.selectedIndex = null
+      this.onChange()
+      return this.cnf
+    },
     async loadEndpointData(endpoint, load = this.camp[endpoint]()._meta.load) {
       await load
       this.loadingEndpoints[endpoint] = false
@@ -306,6 +227,7 @@ export default {
         campUri: this.camp._meta.self,
         printConfig: undefined,
       })
+      this.selectedIndex = null
       this.cnf = this.createConfig()
     },
     defaultContents() {
@@ -346,13 +268,30 @@ export default {
 
       return contents
     },
-    addContent(content) {
-      this.cnf.contents.push(content)
+    addContent(section) {
+      this.cnf.contents.push({
+        type: section.type,
+        options: section.defaultOptions(this.camp),
+      })
+      this.selectedIndex = this.cnf.contents.length - 1
       this.onChange()
     },
     removeContent(idx) {
       this.cnf.contents.splice(idx, 1)
+      this.selectedIndex = null
       this.onChange()
+    },
+    reorderContents(contents) {
+      this.cnf.contents = contents
+      this.onChange()
+    },
+    selectSection(type) {
+      const index = this.cnf.contents.findLastIndex((content) => content.type === type)
+      this.selectedIndex = index === -1 ? null : index
+    },
+    deleteSection(section) {
+      deleteCustomSection(section.type)
+      this.setConfig(this.cnf)
     },
     onChange() {
       this.$nextTick(() => {
@@ -361,9 +300,6 @@ export default {
           printConfig: cloneDeep(JSON.parse(jsonStringifyReactiveValue(this.cnf))),
         })
       })
-      if (this.isDev) {
-        this.prettyConfig = jsonStringifyReactiveValue(this.cnf, 2)
-      }
     },
     onChangeContentConfig(index, value) {
       this.cnf.contents[index].options = value
@@ -371,10 +307,7 @@ export default {
     },
     repairConfig(config) {
       const repairers = Object.fromEntries(
-        Object.entries(this.contentComponents).map(([componentName, component]) => [
-          componentName,
-          component.repairConfig,
-        ])
+        Object.entries(this.sections).map(([type, section]) => [type, section.repair])
       )
 
       return repairConfig(
@@ -391,19 +324,39 @@ export default {
 </script>
 
 <style scoped lang="scss">
-.e-print-configurator__cnf {
-  &:deep(.v-expansion-panel-title) {
-    font-family: monospace;
-    border-top: 1px solid rgba(0, 0, 0, 0.2);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+.e-print-configurator {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.e-print-configurator__column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.e-print-configurator__preview {
+  height: 70vh;
+  background: #eee;
+}
+
+@media (min-width: 1264px) {
+  .e-print-configurator {
+    grid-template-columns: 260px 300px minmax(0, 1fr) 340px;
+    height: calc(100vh - 180px);
+    min-height: 560px;
   }
 
-  &:deep(.v-expansion-panel-title--active) {
+  .e-print-configurator__column {
+    height: 100%;
+    overflow-y: auto;
     border-bottom: none;
+    border-right: 1px solid rgba(0, 0, 0, 0.12);
   }
 
-  &:deep(.v-expansion-panel-text) {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+  .e-print-configurator__preview {
+    overflow: hidden;
   }
 }
 </style>

@@ -23,7 +23,9 @@ export default {
       await this.$onProgress('assembleContent', {
         content: this.index + 1,
         totalContents: this.totalContents,
-        type: this.$tc(`print.${camelCase(this.type)}.title`),
+        type:
+          this.config?.sectionTitles?.[this.type] ??
+          this.$tc(`print.${camelCase(this.type)}.title`),
       })
     }
   },

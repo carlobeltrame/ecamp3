@@ -496,6 +496,54 @@
       }
     },
     "print": {
+      "assistant": {
+        "dialogCampAccess": {
+          "allow": "Allow for this session",
+          "deny": "Not now",
+          "explanation": "So far the assistant has only seen a fictional sample camp. If you allow it, the schedule, activities, texts and team names of {camp} can be sent to the AI provider for the rest of this session.",
+          "reason": "Reason given by the assistant: {reason}",
+          "revoke": "You can revoke this at any time in the assistant menu.",
+          "title": "Let the assistant see your camp?"
+        },
+        "dialogReviewChange": {
+          "accept": "Accept",
+          "after": "After",
+          "before": "Before",
+          "pages": "{count} page | {count} pages",
+          "reject": "Reject",
+          "title": "Proposed change · {section}"
+        },
+        "printAssistant": {
+          "activity": {
+            "reading": "Looking things up…",
+            "rendering": "Trying out the change…",
+            "thinking": "Thinking…",
+            "waiting": "Waiting for your answer…"
+          },
+          "allowAccess": "Let the assistant see this camp",
+          "changeStatus": {
+            "accepted": "Accepted",
+            "rejected": "Rejected",
+            "replaced": "Replaced by a newer proposal"
+          },
+          "configChange": {
+            "applied": "The document settings were changed.",
+            "undone": "The change of the document settings was undone."
+          },
+          "error": "Something did not work. Please try again.",
+          "failure": "I could not make this change without errors. Try again with more specific instructions, or in several smaller steps. Nothing was changed.",
+          "imageError": "A file could not be read as a picture.",
+          "input": "Ask for a change",
+          "intro": "Describe in your own words what the printout should look like, for example «Make a page that lists how many hours of program we have per day».",
+          "removeImage": "Remove picture",
+          "review": "Review",
+          "revokeAccess": "Stop showing this camp to the assistant",
+          "seesCamp": "Sees your camp",
+          "seesSampleCamp": "Sample camp",
+          "title": "Assistant",
+          "unavailable": "The assistant is not available: no Anthropic API key is configured."
+        }
+      },
       "config": {
         "activityConfig": {
           "activity": "Activity"
@@ -517,6 +565,32 @@
         },
         "programConfig": {
           "dayOverview": "print day overview"
+        }
+      },
+      "configurator": {
+        "dialogAddSection": {
+          "newWithAssistant": "New section with the assistant",
+          "newWithAssistantHint": "Describe what the page should show",
+          "origin": {
+            "ecamp": "eCamp",
+            "user": "Mine"
+          },
+          "search": "Search",
+          "title": "Add a section"
+        },
+        "optionsForm": {
+          "imageError": "This picture cannot be used. Please choose a PNG or JPEG file of at most 500 kB.",
+          "imageWithoutName": "Picture",
+          "noOptions": "This section has no settings.",
+          "pdfError": "This file cannot be read as a PDF.",
+          "pdfPages": "{count} page | {count} pages"
+        },
+        "sectionList": {
+          "add": "Add section",
+          "compact": "compact",
+          "custom": "mine",
+          "document": "Document",
+          "pageNumbers": "page numbers"
         }
       },
       "documents": {
@@ -560,6 +634,9 @@
           "Activity": "Single activity",
           "ActivityList": "Activity list (courses)",
           "Cover": "Cover page",
+          "EmptyPage": "Empty page",
+          "InsertPdf": "Insert PDF",
+          "NotesPage": "Notes page",
           "Picasso": "Picasso",
           "Program": "Program",
           "SafetyConsiderations": "Safety considerations",
@@ -576,7 +653,54 @@
         "layoutInfo": "We've combined the strengths of both print layouts into one new layout. Under «Settings», you can enable the compact layout, which is similar to the previous layout #2. Have we overlooked something, or has something stopped working? {contactLink}.",
         "layoutInfoTitle": "Where is the print layout selection?",
         "options": "Settings",
-        "pageNumbers": "Page numbers"
+        "pageNumbers": "Page numbers",
+        "previewPages": "{title} · {count} page | {title} · {count} pages",
+        "wholeDocument": "Whole document"
+      },
+      "sections": {
+        "sections": {
+          "description": {
+            "Activity": "One selected activity in full",
+            "ActivityList": "Compact list of all activities, for courses",
+            "Cover": "Title page with camp name and motto",
+            "EmptyPage": "Blank pages, optionally with a heading and your own text",
+            "InsertPdf": "Pages from a PDF file on your computer",
+            "NotesPage": "Lined, squared or dotted page, once or once per day",
+            "Picasso": "Week calendar per period",
+            "Program": "Day by day, with the content of each activity",
+            "SafetyConsiderations": "All safety considerations of the camp in one list",
+            "Story": "Story context of every day and activity",
+            "Toc": "One entry per section, with page numbers"
+          },
+          "option": {
+            "EmptyPage": {
+              "alignment": "Alignment",
+              "alignmentItems": {
+                "center": "Centered",
+                "left": "Left"
+              },
+              "heading": "Heading",
+              "pageCount": "Number of pages",
+              "text": "Text"
+            },
+            "InsertPdf": {
+              "file": "PDF file",
+              "fitToPageSize": "Scale to the page size of the document",
+              "pageRange": "Pages (for example 1-3, 5; empty for all)",
+              "tocTitle": "Title in the table of contents"
+            },
+            "NotesPage": {
+              "lineStyle": "Lines",
+              "lineStyleItems": {
+                "dotted": "Dotted",
+                "lined": "Lined",
+                "squared": "Squared"
+              },
+              "perDay": "One page per day",
+              "periods": "Period(s)"
+            }
+          }
+        }
       }
     },
     "program": {
@@ -1058,6 +1182,15 @@
     },
     "cover": {
       "title": "Cover page"
+    },
+    "emptyPage": {
+      "title": "Empty page"
+    },
+    "insertPdf": {
+      "title": "Inserted PDF"
+    },
+    "notesPage": {
+      "title": "Notes"
     },
     "picasso": {
       "picassoFooter": {

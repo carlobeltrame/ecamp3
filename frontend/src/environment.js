@@ -23,6 +23,8 @@ export function getEnv() {
     FEATURE_DEVELOPER: (env.VITE_FEATURE_DEVELOPER ?? 'true') === 'true',
     FEATURE_COMMENTS: (env.VITE_FEATURE_COMMENTS ?? 'true') === 'true',
     FEATURE_HITOBITO: (env.VITE_FEATURE_HITOBITO ?? 'true') === 'true',
+    ANTHROPIC_API_KEY: env.VITE_ANTHROPIC_API_KEY,
+    PRINT_ASSISTANT_MODEL: env.VITE_PRINT_ASSISTANT_MODEL ?? 'claude-opus-5-5',
     LOGIN_INFO_TEXT_KEY: env.VITE_LOGIN_INFO_TEXT_KEY ?? 'dev',
   }
 }

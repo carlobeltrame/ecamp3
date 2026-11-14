@@ -5,14 +5,8 @@
       :title="$t('components.print.generator.printPreview.previewIframeTitle')"
       class="d-block"
       v-bind="$attrs"
-      height="800px"
     />
-    <v-overlay
-      :model-value="loading || error"
-      contained
-      z-index="2"
-      content-class="w-100 h-100 text-white"
-    >
+    <div v-if="loading || error" class="e-print-preview__overlay text-white">
       <div v-if="error">
         {{ $t('components.print.generator.printPreview.previewError') }}
       </div>
@@ -20,7 +14,7 @@
         <v-progress-circular :model-value="progress" size="24"></v-progress-circular>
         <div>{{ state }}</div>
       </div>
-    </v-overlay>
+    </div>
   </div>
 </template>
 
@@ -40,7 +34,12 @@ export default {
       type: Object,
       default: () => ({}),
     },
+    draftSections: {
+      type: Array,
+      default: () => [],
+    },
   },
+  emits: ['rendered'],
   setup() {
     const toast = useToast()
     return { toast }
@@ -58,7 +57,7 @@ export default {
     },
     urlWithPagemodes() {
       if (!this.url) return null
-      return this.url + '#navpanes=0&pagemode=none&zoom=100'
+      return this.url + '#navpanes=0&pagemode=none'
     },
   },
   watch: {
@@ -91,11 +90,12 @@ export default {
       this.revokeOldObjectUrl()
       this.setProgress(0, 'loadingData')
 
-      const { error, blob } = await generatePdf(
+      const { error, blob, pageCount } = await generatePdf(
         {
           config: { ...this.config, apiGet: this.api.get.bind(this) },
           storeData: this.$store.state,
           translationData: componentI18n.messages.value,
+          draftSections: this.draftSections,
           renderInWorker: RENDER_IN_WORKER,
         },
         this.onProgress.bind(this)
@@ -107,6 +107,7 @@ export default {
         this.setProgress(100, 'failed')
       } else {
         this.url = URL.createObjectURL(blob)
+        this.$emit('rendered', { pageCount })
         this.setProgress(100, 'done')
       }
 
@@ -127,4 +128,11 @@ export default {
 }
 </script>
 
-<style scoped></style>
+<style scoped>
+.e-print-preview__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: rgb(0, 0, 0, 0.32);
+}
+</style>

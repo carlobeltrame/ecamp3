@@ -262,6 +262,35 @@ describe.each(['A3', 'A4', 'A5'])('in %p format', (pageSize) => {
       )
     })
 
+    it('labels an inserted PDF in the table of contents', async () => {
+      const store = wrap(fullCampStoreContent)
+      const insertPdf = (tocTitle) => ({
+        type: 'InsertPdf',
+        options: { file: null, tocTitle, pageRange: '', fitToPageSize: true },
+      })
+
+      const result = renderVueToPdfStructure(CampPrint, {
+        store,
+        $tc: tcMock,
+        locale: 'de',
+        config: {
+          language: 'de',
+          documentName: 'Pfila 2023.pdf',
+          options: { pageNumbers: false, pageSize },
+          camp: store.get('/camps/c4cca3a51342'),
+          contents: [
+            { type: 'Toc', options: {} },
+            insertPdf(' Packing list '),
+            insertPdf(''),
+          ],
+        },
+      })
+
+      const rendered = JSON.stringify(result, createCircularReplacer())
+      expect(rendered).toContain('"Packing list"')
+      expect(rendered).toContain('"Inserted PDF"')
+    })
+
     it('renders the table of contents', async () => {
       // given
       const store = wrap(fullCampStoreContent)
